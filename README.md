@@ -76,7 +76,7 @@ Changelist mode never touches your real index when committing. Changeline builds
 
 ## Differences to JetBrains IDEs
 
-- Dialogs open as editor tabs (VS Code has no modal webview dialogs); Escape cancels, Enter confirms.
+- VS Code has no modal dialogs for extensions. Dialogs started from the Git log or the Commit tool window open as a modal overlay inside that view, dialogs with a single text or choice field (e.g. the reset type) use VS Code's quick input, and the remaining dialogs, or overlays that do not fit into a small view, open as an editor tab. Escape cancels, Enter confirms.
 - The diff viewer is read-only apart from its chunk actions; *Jump to Source* (F4) opens the editable file, *Open in VS Code Diff Editor* edits in place. The merge window's result is editable per change block.
 - Changelists are stored per workspace (`workspaceState`), the shelf in the extension's workspace storage.
 - Local History is an IDE feature, not part of Git, and is not included.

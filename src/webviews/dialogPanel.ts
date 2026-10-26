@@ -1,10 +1,12 @@
 import * as vscode from 'vscode';
 import { services } from '../services';
+import { quickInputField } from '../shared/dialogs';
 import type { DialogResult, DialogSpec, DialogValues } from '../shared/types';
+import { cleanErrors, dialogOrigin, DialogValidator, UNAVAILABLE } from './dialogOverlay';
 import { RpcHandlers, WebviewPanelBase } from './host';
+import { showQuickInputDialog } from './quickInputDialog';
 
-export type ValidationErrors = Partial<Record<string, string>>;
-export type DialogValidator = (values: DialogValues, button: string) => ValidationErrors | undefined | Promise<ValidationErrors | undefined>;
+export type { DialogValidator, ValidationErrors } from './dialogOverlay';
 
 export class DialogPanel extends WebviewPanelBase {
 	private resolveResult!: (r: DialogResult | undefined) => void;
@@ -22,10 +24,10 @@ export class DialogPanel extends WebviewPanelBase {
 
 	protected handlers(): RpcHandlers {
 		return {
-			validate: async (p: { values: DialogValues; button: string }) => clean(this.validate ? await this.validate(p.values, p.button) : undefined),
+			validate: async (p: { values: DialogValues; button: string }) => cleanErrors(this.validate ? await this.validate(p.values, p.button) : undefined),
 			submit: async (p: { values: DialogValues; button: string }) => {
 				if (this.validate && p.button !== 'cancel') {
-					const errors = clean(await this.validate(p.values, p.button));
+					const errors = cleanErrors(await this.validate(p.values, p.button));
 					if (Object.keys(errors).length) {
 						return { errors };
 					}
@@ -53,16 +55,6 @@ export class DialogPanel extends WebviewPanelBase {
 	}
 }
 
-function clean(errors: ValidationErrors | undefined): Record<string, string> {
-	const out: Record<string, string> = {};
-	for (const [k, v] of Object.entries(errors ?? {})) {
-		if (v) {
-			out[k] = v;
-		}
-	}
-	return out;
-}
-
 type DialogResponder = (spec: DialogSpec) => DialogResult | undefined;
 let responder: DialogResponder | undefined;
 
@@ -71,16 +63,28 @@ export function setDialogResponder(r: DialogResponder | undefined): void {
 	responder = r;
 }
 
+/** Shows a dialog: a single text or choice field as quick input, otherwise as overlay in the webview the command came from, otherwise as editor tab. */
 export async function showDialog(spec: DialogSpec, validate?: DialogValidator): Promise<DialogResult | undefined> {
 	if (responder) {
 		const result = responder(spec);
 		if (result && validate) {
-			const errors = clean(await validate(result.values, result.button));
+			const errors = cleanErrors(await validate(result.values, result.button));
 			if (Object.keys(errors).length) {
 				throw new Error(vscode.l10n.t('Dialog "{0}" rejected the answer: {1}', spec.title, JSON.stringify(errors)));
 			}
 		}
 		return result;
+	}
+	const field = quickInputField(spec);
+	if (field) {
+		return showQuickInputDialog(spec, field, validate);
+	}
+	const overlay = dialogOrigin();
+	if (overlay) {
+		const result = await overlay.show(spec, validate);
+		if (result !== UNAVAILABLE) {
+			return result;
+		}
 	}
 	return DialogPanel.open(spec, validate);
 }

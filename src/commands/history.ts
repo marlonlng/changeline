@@ -21,7 +21,7 @@ import { CommandContext, confirm, handleOutcome, resolveRepo, savePatch, uriOf, 
 /** A log in an editor tab (file history, update info, ...). */
 export function openLogPanel(scope: LogScope, title: string): void {
 	const panel = vscode.window.createWebviewPanel('changeline.history', title, vscode.ViewColumn.Active, { ...webviewOptions(services().context.extensionUri), retainContextWhenHidden: true });
-	const controller = new LogController(panel.webview, scope);
+	const controller = new LogController(panel.webview, scope, { visible: () => panel.visible, reveal: () => panel.reveal(undefined, false) });
 	panel.webview.html = renderWebviewHtml(panel.webview, services().context.extensionUri, 'log', { title });
 	panel.onDidChangeViewState(() => {
 		if (panel.active) {

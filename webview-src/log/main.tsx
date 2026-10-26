@@ -11,6 +11,7 @@ import { DetailsPane } from './details';
 import { GraphCell, ROW_HEIGHT } from './graph';
 import type { CommitInfo, Details, Filters, InitData, RefLabel, RefsPayload } from './types';
 import { plural, t } from '../common/l10n';
+import { mountDialogLayer } from '../common/dialog';
 
 interface ViewOptions {
 	showBranches: boolean;
@@ -745,3 +746,4 @@ function App() {
 }
 
 render(<App />, document.getElementById('app')!);
+mountDialogLayer();

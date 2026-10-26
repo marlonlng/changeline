@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Checkbox, IconButton } from '../common/components';
 import { call, on, send } from '../common/rpc';
 import { t } from '../common/l10n';
+import { mountDialogLayer } from '../common/dialog';
 
 interface Options {
 	signOff: boolean;
@@ -193,3 +194,4 @@ function App() {
 }
 
 render(<App />, document.getElementById('app')!);
+mountDialogLayer();

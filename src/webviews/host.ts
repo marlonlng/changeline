@@ -4,11 +4,12 @@ import type { RpcMessage } from '../shared/types';
 import { errorMessage } from '../util';
 
 export type RpcHandlers = Record<string, (params: any) => unknown>;
+export type RpcContext = <T>(fn: () => T) => T;
 
 export class RpcChannel implements vscode.Disposable {
 	private subscription: vscode.Disposable;
 
-	constructor(private readonly webview: vscode.Webview, private readonly handlers: RpcHandlers) {
+	constructor(private readonly webview: vscode.Webview, private readonly handlers: RpcHandlers, private readonly context: RpcContext = (fn) => fn()) {
 		this.subscription = webview.onDidReceiveMessage(async (msg: RpcMessage) => {
 			if (!msg || msg.kind !== 'request') {
 				return;
@@ -18,7 +19,7 @@ export class RpcChannel implements vscode.Disposable {
 				if (!handler) {
 					throw new Error(vscode.l10n.t('Unknown method {0}', msg.method));
 				}
-				const result = await handler(msg.params);
+				const result = await this.context(() => handler(msg.params));
 				void this.webview.postMessage({ kind: 'response', id: msg.id, result } satisfies RpcMessage);
 			} catch (e) {
 				if (!(e instanceof vscode.CancellationError)) {
@@ -39,7 +40,7 @@ export class RpcChannel implements vscode.Disposable {
 		if (!handler) {
 			throw new Error(vscode.l10n.t('Unknown method {0}', method));
 		}
-		return handler(params);
+		return this.context(() => handler(params));
 	}
 
 	dispose(): void {

@@ -19,7 +19,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | JetBrains | Changeline | Evidence |
 | --- | --- | --- |
 | Local Changes tree, file status colors | *Commit* activity bar → Local Changes | E, S 01 |
-| Changelists: new, edit (name + comment), delete, set active | Tree context menu, view toolbar | E, S 01 |
+| Changelists: new, edit (name + comment), delete, set active | Tree context menu, view toolbar; the dialogs open as overlay in the Commit tool window | E, V (new changelist overlay), S 01 |
 | Move to Another Changelist (F6), drag & drop | Context menu, F6, drag between lists | E |
 | Partial changelists (chunks of one file in different lists) | ⇄ per chunk in the diff viewer; the file shows in each list | E, S 01–02 |
 | Include checkboxes (file, directory, changelist) | Tree checkboxes | E, S 01 |
@@ -63,7 +63,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | Filters: text/hash (regex, case), branch, user, date, paths | Filter bar | I, V (text), H |
 | Highlight current branch / my commits, collapse linear branches | View options | U, V |
 | Commit details, changed files tree, merge commit parent selection | Right pane | V, H |
-| Commit context menu (cherry-pick, revert, reset, undo, edit message, fixup, squash into, squash commits, drop, interactive rebase from here, push up to here, new branch / tag, checkout revision, show repository at revision, compare with local, create patch, copy revision, go to parent / child, open in browser) | Right-click on a commit | I (operations), E, V (menu context of the rows), H |
+| Commit context menu (cherry-pick, revert, reset, undo, edit message, fixup, squash into, squash commits, drop, interactive rebase from here, push up to here, new branch / tag, checkout revision, show repository at revision, compare with local, create patch, copy revision, go to parent / child, open in browser) | Right-click on a commit; dialogs open as overlay in the log | I (operations), E, V (menu context of the rows, edit message overlay, reset quick pick), H, S 14 |
 | Changed file context menu (show diff, compare with local, edit source, open repository version, revert / cherry-pick selected changes, history up to here, Get, annotate revision, open in browser) | Right-click on a file | E |
 | New Log tab | Log toolbar (+), branch → Show in New Log Tab | E |
 | Console | *Show Git Console* | E |
@@ -103,6 +103,6 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 
 ## Platforms
 
-- **macOS:** all suites pass: 50 unit and integration tests (including the two checks against the real GitHub and GitLab APIs and the completeness check of the German translation), 18 end-to-end tests through commands, 14 end-to-end tests in the real UI, 2 end-to-end tests with the German display language, and the screenshot run. The end-to-end tests run with an isolated Git configuration (`GIT_CONFIG_GLOBAL`), so the machine's settings cannot change the results.
-- **Linux (Docker, git 2.39):** 42 unit and integration tests and 31 end-to-end tests passed inside VS Code under Xvfb (2026-10-21). The activity bar badge test, the German translation and its tests (added on 2026-10-26) have run on macOS only.
+- **macOS:** all suites pass: 53 unit and integration tests (including the two checks against the real GitHub and GitLab APIs and the completeness check of the German translation), 18 end-to-end tests through commands, 17 end-to-end tests in the real UI, 2 end-to-end tests with the German display language, and the screenshot run. The end-to-end tests run with an isolated Git configuration (`GIT_CONFIG_GLOBAL`), so the machine's settings cannot change the results.
+- **Linux (Docker, git 2.39):** 42 unit and integration tests and 31 end-to-end tests passed inside VS Code under Xvfb (2026-10-21). The activity bar badge test, the German translation, the dialog overlays and their tests (added on 2026-10-26) have run on macOS only.
 - **Windows:** deliberately not run on a real Windows machine (decision of the project owner, 2026-10-21). The path logic (drive letter case, backslashes against git's forward slashes, UNC paths, named pipe for askpass, script paths for Git for Windows' `sh`) is unit-tested with `path.win32` on every platform, and `.github/workflows/ci.yml` runs every suite on Windows, macOS and Linux if the project is pushed to GitHub.

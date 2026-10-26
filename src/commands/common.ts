@@ -5,17 +5,32 @@ import type { OperationOutcome, Repository } from '../git/repository';
 import { services } from '../services';
 import { plural, safe, showError } from '../util';
 import { LogController } from '../views/logController';
+import { DialogOverlay, dialogOrigin, withDialogOrigin } from '../webviews/dialogOverlay';
 
 export interface CommandContext {
 	register(id: string, fn: (...args: any[]) => unknown, errorPrefix?: string): void;
 }
 
-export function makeRegistrar(context: vscode.ExtensionContext): CommandContext {
+export type DialogOverlayResolver = (command: string, args: unknown[]) => DialogOverlay | undefined;
+
+export function makeRegistrar(context: vscode.ExtensionContext, overlayFor: DialogOverlayResolver = () => undefined): CommandContext {
 	return {
 		register(id, fn, errorPrefix) {
-			context.subscriptions.push(vscode.commands.registerCommand(id, safe(fn, errorPrefix)));
+			const run = safe(fn, errorPrefix);
+			context.subscriptions.push(vscode.commands.registerCommand(id, (...args: unknown[]) => (dialogOrigin() ? run(...args) : withDialogOrigin(overlayFor(id, args), () => run(...args)))));
 		},
 	};
+}
+
+const COMMIT_VIEW_COMMAND = /^changeline\.(changes|shelf|stash)\.|^changeline\.(applyPatch|stashChanges|unstashChanges)$/;
+
+/** The webview whose overlay shows a command's dialogs: the log of a webview context menu, or the Commit tool window for its own commands. */
+export function commandDialogOverlay(command: string, args: unknown[], commitView: DialogOverlay): DialogOverlay | undefined {
+	const logId = (args[0] as { logId?: unknown } | undefined)?.logId;
+	if (typeof logId === 'string') {
+		return LogController.get(logId)?.dialogs;
+	}
+	return COMMIT_VIEW_COMMAND.test(command) ? commitView : undefined;
 }
 
 /**

@@ -1,0 +1,169 @@
+.jg-dialog {
+	width: 100%;
+	margin: 0 auto;
+	padding: 18px 22px 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+	color: var(--vscode-foreground);
+	border: 1px solid var(--vscode-editorWidget-border, var(--jg-border));
+	border-radius: 6px;
+	box-shadow: 0 4px 18px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.35));
+	text-align: left;
+}
+
+.jg-dialog h2 {
+	margin: 0;
+	font-size: 1.3em;
+	font-weight: 600;
+}
+
+.jg-dialog .description {
+	margin: 0;
+	color: var(--jg-muted);
+	white-space: pre-wrap;
+	line-height: 1.45;
+}
+
+.jg-dialog .fields {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.jg-dialog .field {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.jg-dialog .field.row {
+	display: grid;
+	grid-template-columns: 140px minmax(0, 1fr);
+	align-items: center;
+	column-gap: 10px;
+}
+
+.jg-dialog .field.row .hint,
+.jg-dialog .field.row .error {
+	grid-column: 2;
+}
+
+.jg-dialog .field-label {
+	color: var(--vscode-foreground);
+}
+
+.jg-dialog .field input[type='text'],
+.jg-dialog .field select,
+.jg-dialog .field textarea {
+	width: 100%;
+	min-width: 0;
+}
+
+.jg-dialog .field textarea {
+	resize: vertical;
+	line-height: 1.4;
+}
+
+.jg-dialog .field input.invalid {
+	border-color: var(--vscode-inputValidation-errorBorder);
+}
+
+.jg-dialog .hint {
+	color: var(--jg-muted);
+	font-size: 0.92em;
+	line-height: 1.4;
+}
+
+.jg-dialog .error {
+	color: var(--vscode-errorForeground);
+	font-size: 0.92em;
+}
+
+.jg-dialog .radios {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding-left: 4px;
+}
+
+.jg-dialog .radio {
+	display: flex;
+	gap: 8px;
+	align-items: flex-start;
+	cursor: pointer;
+	line-height: 1.4;
+}
+
+.jg-dialog .radio input {
+	margin-top: 3px;
+	accent-color: var(--vscode-checkbox-selectBackground, var(--vscode-button-background));
+}
+
+.jg-dialog .label-field {
+	white-space: pre-wrap;
+	line-height: 1.45;
+}
+
+.jg-dialog .checklist {
+	max-height: 320px;
+	overflow: auto;
+	border: 1px solid var(--jg-border);
+	border-radius: 3px;
+	padding: 2px 0;
+}
+
+.jg-dialog .checklist-head {
+	font-weight: 600;
+}
+
+.jg-dialog .buttons {
+	display: flex;
+	flex-wrap: nowrap;
+	gap: 8px;
+	padding-top: 10px;
+	margin-top: 4px;
+	border-top: 1px solid var(--jg-border);
+}
+
+.jg-dialog .buttons .spacer {
+	flex: 1;
+}
+
+@media (max-width: 460px) {
+	.jg-dialog {
+		padding: 12px 12px 10px;
+	}
+
+	.jg-dialog .field.row {
+		grid-template-columns: minmax(0, 1fr);
+		row-gap: 4px;
+	}
+
+	.jg-dialog .field.row .hint,
+	.jg-dialog .field.row .error {
+		grid-column: 1;
+	}
+
+	.jg-dialog .buttons {
+		flex-wrap: wrap;
+	}
+}
+
+.jg-dialog-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	display: flex;
+	overflow: auto;
+	background: rgba(0, 0, 0, 0.32);
+}
+
+.jg-dialog-overlay > .jg-dialog {
+	margin: auto;
+}
+
+.jg-dialog-overlay.measuring {
+	visibility: hidden;
+}

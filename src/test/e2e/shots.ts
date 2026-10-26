@@ -93,6 +93,11 @@ export async function run(): Promise<void> {
 		await vscode.commands.executeCommand('workbench.action.toggleMaximizedPanel').then(undefined, () => undefined);
 		await sleep(2500);
 		await shot('03-git-log');
+		const log = api._test.logView.current!;
+		void vscode.commands.executeCommand('changeline.log.editMessage', { logId: log.id, hash: repo.state.head });
+		await sleep(1500);
+		await shot('14-edit-commit-message');
+		log.dialogs.dispose();
 		await vscode.commands.executeCommand('workbench.action.toggleMaximizedPanel').then(undefined, () => undefined);
 		await vscode.commands.executeCommand('workbench.action.closePanel');
 	});

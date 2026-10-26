@@ -4,6 +4,7 @@ import type { LogQuery, Repository } from '../git/repository';
 import { services } from '../services';
 import type { CommitInfo, FileChange } from '../shared/types';
 import { config, escapeRegex } from '../util';
+import { DialogOverlay, DialogSurface, withDialogOrigin } from '../webviews/dialogOverlay';
 import { renderWebviewHtml, RpcChannel, webviewOptions } from '../webviews/host';
 
 export interface LogFilters {
@@ -55,6 +56,7 @@ export class LogController implements vscode.Disposable {
 	private static counter = 0;
 
 	readonly id: string;
+	readonly dialogs: DialogOverlay;
 	private rpc: RpcChannel;
 	private disposables: vscode.Disposable[] = [];
 	selection: string[] = [];
@@ -75,12 +77,13 @@ export class LogController implements vscode.Disposable {
 		}
 	}
 
-	constructor(private readonly webview: vscode.Webview, readonly scope: LogScope) {
+	constructor(private readonly webview: vscode.Webview, readonly scope: LogScope, surface: DialogSurface) {
 		this.id = `log-${++LogController.counter}`;
 		this.repoRoot = scope.repoRoot ?? services().repos.current()?.root;
 		LogController.registry.set(this.id, this);
 		LogController.lastFocused = this;
-		this.rpc = new RpcChannel(webview, this.handlers());
+		this.dialogs = new DialogOverlay((name, data) => this.rpc.emit(name, data), surface);
+		this.rpc = new RpcChannel(webview, { ...this.handlers(), ...this.dialogs.handlers() }, (fn) => withDialogOrigin(this.dialogs, fn));
 		const s = services();
 		this.disposables.push(
 			s.repos.onDidChangeRefs((repo) => {
@@ -425,6 +428,7 @@ export class LogController implements vscode.Disposable {
 		if (LogController.lastFocused === this) {
 			LogController.lastFocused = [...LogController.registry.values()][0];
 		}
+		this.dialogs.dispose();
 		this.rpc.dispose();
 		this.disposables.forEach((d) => d.dispose());
 	}
@@ -442,7 +446,7 @@ export class LogViewProvider implements vscode.WebviewViewProvider, vscode.Dispo
 		this.view = view;
 		view.webview.options = webviewOptions(this.extensionUri);
 		this.controller?.dispose();
-		this.controller = new LogController(view.webview, { kind: 'log' });
+		this.controller = new LogController(view.webview, { kind: 'log' }, { visible: () => view.visible, reveal: () => view.show(false) });
 		view.webview.html = renderWebviewHtml(view.webview, this.extensionUri, 'log', { title: vscode.l10n.t('Log') });
 		view.onDidChangeVisibility(() => {
 			if (view.visible) {

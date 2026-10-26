@@ -320,6 +320,73 @@ test('dialogs: New Branch validates the name and creates the branch without chec
 	assert.equal(repo().state.branch, 'main', 'not checked out');
 });
 
+const dialogTabs = () =>
+	vscode.window.tabGroups.all.flatMap((g) => g.tabs).filter((t) => t.input instanceof vscode.TabInputWebview && t.input.viewType.endsWith('changeline.dialog'));
+
+test('dialogs from the log open as overlay in the log: edit commit message, Escape cancels', async () => {
+	await commitFile('overlay.txt', 'overlay\n', 'overlay before');
+	await vscode.commands.executeCommand('changeline.showLog');
+	const log = await webview('Log');
+	const logId = api._test.logView.current!.id;
+	void vscode.commands.executeCommand('changeline.log.editMessage', { logId, hash: (await repo().revParse('HEAD'))! });
+	await log.waitFor(`document.querySelector('.jg-dialog-overlay:not(.measuring) textarea')?.value.startsWith('overlay before')`, 'edit message overlay in the log');
+	assert.equal(dialogTabs().length, 0, 'no dialog tab');
+	await log.type('.jg-dialog-overlay textarea', 'overlay after');
+	await log.clickText('.jg-dialog-overlay .buttons .jg-btn.primary', 'OK');
+	await waitFor(async () => (await repo().getCommit('HEAD')).subject === 'overlay after', 'message changed');
+	await log.waitFor(`!document.querySelector('.jg-dialog-overlay')`, 'overlay closed after OK');
+
+	void vscode.commands.executeCommand('changeline.log.editMessage', { logId, hash: (await repo().revParse('HEAD'))! });
+	await log.waitFor(`!!document.querySelector('.jg-dialog-overlay:not(.measuring) textarea')`, 'overlay opened again');
+	await log.key('Escape', {}, '.jg-dialog-overlay textarea');
+	await log.waitFor(`!document.querySelector('.jg-dialog-overlay')`, 'Escape closes the overlay');
+	assert.equal((await repo().getCommit('HEAD')).subject, 'overlay after');
+});
+
+test('single-choice dialogs are quick picks: reset from the log', async () => {
+	const before = (await repo().revParse('HEAD'))!;
+	await commitFile('reset-pick.txt', 'pick\n', 'reset pick');
+	void vscode.commands.executeCommand('changeline.log.resetToHere', { logId: api._test.logView.current!.id, hash: before });
+	const rows = await waitFor(async () => {
+		const r = await quickPickRows();
+		return r.length === 4 && r;
+	}, 'reset types in a quick pick');
+	assert.deepEqual(rows.map((r) => /^(Soft|Mixed|Hard|Keep)/.exec(r)?.[1]), ['Soft', 'Mixed', 'Hard', 'Keep']);
+	assert.equal(dialogTabs().length, 0, 'no dialog tab');
+	const wb = await workbench();
+	await wb.eval(`(() => { const i = document.querySelector('.quick-input-widget .quick-input-box input'); i.value = 'Keep'; i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+	await waitFor(async () => (await quickPickRows())[0]?.startsWith('Keep'), 'filtered to Keep');
+	await vscode.commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
+	await waitFor(async () => (await repo().revParse('HEAD')) === before, 'branch reset');
+	assert.equal(fs.existsSync(path.join(ws, 'reset-pick.txt')), false, 'keep reset removed the committed file');
+});
+
+test('dialogs from the Commit tool window open as overlay in the commit message view', async () => {
+	await vscode.commands.executeCommand('workbench.view.extension.changeline-commit');
+	const wb = await workbench();
+	const toggleLocalChanges = () => wb.eval(`[...document.querySelectorAll('.pane-header')].find((h) => h.textContent.includes('Local Changes')).click()`);
+	const expanded = () => wb.eval<boolean>(`[...document.querySelectorAll('.pane-header')].find((h) => h.textContent.includes('Local Changes')).getAttribute('aria-expanded') === 'true'`);
+	if (await expanded()) {
+		await toggleLocalChanges();
+	}
+	try {
+		const cv = await webview('Commit');
+		await cv.waitFor(`window.innerHeight >= 240`, 'commit message view has room', 10000, `window.innerHeight`);
+		void vscode.commands.executeCommand('changeline.changes.newChangelist');
+		await cv.waitFor(`!!document.querySelector('.jg-dialog-overlay:not(.measuring) input[type="text"]')`, 'new changelist overlay');
+		assert.equal(dialogTabs().length, 0, 'no dialog tab');
+		await cv.type('.jg-dialog-overlay input[type="text"]', 'Overlay list');
+		await cv.clickText('.jg-dialog-overlay .buttons .jg-btn.primary', 'OK');
+		const list = await waitFor(() => api._test.services().changelists.findByName('Overlay list'), 'changelist created');
+		await cv.waitFor(`!document.querySelector('.jg-dialog-overlay')`, 'overlay closed');
+		api._test.services().changelists.remove(list.id);
+	} finally {
+		if (!(await expanded())) {
+			await toggleLocalChanges();
+		}
+	}
+});
+
 test('interactive rebase dialog: drop with the toolbar, reword with the R key', async () => {
 	await commitFile('rb1.txt', '1\n', 'rb one');
 	await commitFile('rb2.txt', '2\n', 'rb two');

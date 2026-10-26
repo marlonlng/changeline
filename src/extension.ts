@@ -6,7 +6,7 @@ import { AskpassServer } from './askpass/askpassServer';
 import { ChangelistManager } from './changelists';
 import { registerBranchCommands } from './commands/branches';
 import { registerChangesCommands } from './commands/changes';
-import { makeRegistrar } from './commands/common';
+import { commandDialogOverlay, makeRegistrar } from './commands/common';
 import { registerFileCommands } from './commands/files';
 import { registerHistoryCommands } from './commands/history';
 import { registerRemoteCommands } from './commands/remote';
@@ -130,7 +130,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Change
 		vscode.window.registerWebviewViewProvider(PullRequestsView.viewId, pullRequests, { webviewOptions: { retainContextWhenHidden: true } }),
 	);
 
-	const ctx = makeRegistrar(context);
+	const ctx = makeRegistrar(context, (id, args) => commandDialogOverlay(id, args, messageView.dialogs));
 	registerBranchCommands(ctx);
 	registerRemoteCommands(ctx);
 	registerChangesCommands(ctx, changesView, commit, messageView);

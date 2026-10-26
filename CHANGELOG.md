@@ -14,4 +14,5 @@ First release.
 - Shelf with three-way unshelve, stash view and dialogs
 - Annotate with Git Blame, file history, history for selection, compare with revision / branch
 - Status bar branch widget, VCS operations popup, Git console, credential prompts
+- Dialogs as modal overlay in the Git log and the Commit tool window; single-field dialogs as quick input
 - English and German user interface

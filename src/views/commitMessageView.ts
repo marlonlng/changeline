@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import type { CommitController } from '../commit';
 import { services } from '../services';
 import { capitalize, config } from '../util';
-import { RpcChannel, renderWebviewHtml, webviewOptions } from '../webviews/host';
+import { DialogOverlay, withDialogOrigin } from '../webviews/dialogOverlay';
+import { RpcChannel, RpcHandlers, renderWebviewHtml, webviewOptions } from '../webviews/host';
 import type { ChangesView } from './changesView';
 
 export class CommitMessageView implements vscode.WebviewViewProvider, vscode.Disposable {
@@ -10,6 +11,7 @@ export class CommitMessageView implements vscode.WebviewViewProvider, vscode.Dis
 	private view?: vscode.WebviewView;
 	private rpc?: RpcChannel;
 	private disposables: vscode.Disposable[] = [];
+	readonly dialogs = new DialogOverlay((name, data) => this.rpc?.emit(name, data), { visible: () => this.view?.visible === true, reveal: () => this.view?.show(false) });
 
 	constructor(private readonly extensionUri: vscode.Uri, private readonly controller: CommitController, private readonly changes: ChangesView) {
 		this.disposables.push(
@@ -27,7 +29,19 @@ export class CommitMessageView implements vscode.WebviewViewProvider, vscode.Dis
 		this.view = view;
 		view.webview.options = webviewOptions(this.extensionUri);
 		this.rpc?.dispose();
-		this.rpc = new RpcChannel(view.webview, {
+		this.dialogs.reset();
+		this.rpc = new RpcChannel(view.webview, { ...this.dialogs.handlers(), ...this.handlers() }, (fn) => withDialogOrigin(this.dialogs, fn));
+		view.webview.html = renderWebviewHtml(view.webview, this.extensionUri, 'commitMessage', { title: vscode.l10n.t('Commit') });
+		view.onDidDispose(() => {
+			this.dialogs.reset();
+			this.rpc?.dispose();
+			this.rpc = undefined;
+			this.view = undefined;
+		}, null, this.disposables);
+	}
+
+	private handlers(): RpcHandlers {
+		return {
 			ready: () => this.state(true),
 			setMessage: (p: { message: string }) => this.controller.setMessage(p.message, true),
 			setAmend: (p: { amend: boolean }) => this.controller.setAmend(p.amend),
@@ -40,13 +54,7 @@ export class CommitMessageView implements vscode.WebviewViewProvider, vscode.Dis
 			resolve: () => vscode.commands.executeCommand('changeline.resolveConflicts'),
 			abort: () => vscode.commands.executeCommand('changeline.abortOperation'),
 			continue: () => vscode.commands.executeCommand('changeline.continueOperation'),
-		});
-		view.webview.html = renderWebviewHtml(view.webview, this.extensionUri, 'commitMessage', { title: vscode.l10n.t('Commit') });
-		view.onDidDispose(() => {
-			this.rpc?.dispose();
-			this.rpc = undefined;
-			this.view = undefined;
-		}, null, this.disposables);
+		};
 	}
 
 	private state(includeMessage: boolean) {
