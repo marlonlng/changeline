@@ -5,12 +5,19 @@ import * as vscode from 'vscode';
 import type { ChangelineApi } from '../../extension';
 import { chunkKey, diffLines, splitLines } from '../../shared/diff';
 import { EXTENSION_ID } from './harness';
+import { closeCdp, webview } from './webview';
 
 const out = process.env['CHANGELINE_SHOTS_DIR']!;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Captures the VS Code window through the Chrome DevTools Protocol. */
-async function shot(name: string): Promise<void> {
+interface ShotArea {
+	selector: string;
+	margin?: number;
+	maxHeight?: number;
+}
+
+/** Captures the VS Code window below the title bar, or only the given element, through the Chrome DevTools Protocol. */
+async function shot(name: string, area?: ShotArea): Promise<void> {
 	await vscode.commands.executeCommand('notifications.clearAll').then(undefined, () => undefined);
 	await sleep(200);
 	const targets = (await (await fetch('http://127.0.0.1:9333/json/list')).json()) as { type: string; url: string; webSocketDebuggerUrl: string }[];
@@ -20,18 +27,33 @@ async function shot(name: string): Promise<void> {
 	}
 	const WS = (globalThis as unknown as { WebSocket: typeof WebSocket }).WebSocket;
 	const ws = new WS(page.webSocketDebuggerUrl);
-	const data = await new Promise<string>((resolve, reject) => {
-		ws.onopen = () => ws.send(JSON.stringify({ id: 1, method: 'Page.captureScreenshot', params: { format: 'png' } }));
-		ws.onmessage = (e: MessageEvent) => {
-			const msg = JSON.parse(String(e.data));
-			if (msg.id === 1) {
-				ws.close();
-				msg.result ? resolve(msg.result.data) : reject(new Error(JSON.stringify(msg.error)));
-			}
-		};
+	const pending = new Map<number, (msg: { result?: any; error?: unknown }) => void>();
+	let nextId = 0;
+	ws.onmessage = (e: MessageEvent) => {
+		const msg = JSON.parse(String(e.data));
+		pending.get(msg.id)?.(msg);
+		pending.delete(msg.id);
+	};
+	await new Promise<void>((resolve, reject) => {
+		ws.onopen = () => resolve();
 		ws.onerror = () => reject(new Error('CDP connection failed'));
 	});
-	fs.writeFileSync(path.join(out, `${name}.png`), Buffer.from(data, 'base64'));
+	const send = (method: string, params: unknown) =>
+		new Promise<any>((resolve, reject) => {
+			const id = ++nextId;
+			pending.set(id, (msg) => (msg.result ? resolve(msg.result) : reject(new Error(JSON.stringify(msg.error)))));
+			ws.send(JSON.stringify({ id, method, params }));
+		});
+	const expression = area
+		? `(() => { const r = document.querySelector(${JSON.stringify(area.selector)}).getBoundingClientRect(); const m = ${area.margin ?? 0}; const x = Math.max(0, r.left - m); const y = Math.max(0, r.top - m); return { x, y, width: Math.min(innerWidth, r.right + m) - x, height: Math.min(innerHeight, r.bottom + m, y + ${area.maxHeight ?? 100000}) - y }; })()`
+		: `(() => { const top = document.querySelector('.part.titlebar')?.getBoundingClientRect().bottom ?? 0; return { x: 0, y: top, width: innerWidth, height: innerHeight - top }; })()`;
+	try {
+		const clip = (await send('Runtime.evaluate', { expression, returnByValue: true })).result.value;
+		const { data } = await send('Page.captureScreenshot', { format: 'png', clip: { ...clip, scale: 1 } });
+		fs.writeFileSync(path.join(out, `${name}.png`), Buffer.from(data, 'base64'));
+	} finally {
+		ws.close();
+	}
 	console.log(`  📸 ${name}.png`);
 }
 
@@ -92,11 +114,14 @@ export async function run(): Promise<void> {
 		await sleep(800);
 		await vscode.commands.executeCommand('workbench.action.toggleMaximizedPanel').then(undefined, () => undefined);
 		await sleep(2500);
-		await shot('03-git-log');
+		const logView = await webview('Log');
+		await logView.clickText('.commit-row .subject .text', 'Document rate limiting');
+		await sleep(1200);
+		await shot('03-git-log', { selector: '.part.panel', maxHeight: 400 });
 		const log = api._test.logView.current!;
 		void vscode.commands.executeCommand('changeline.log.editMessage', { logId: log.id, hash: repo.state.head });
 		await sleep(1500);
-		await shot('14-edit-commit-message');
+		await shot('14-edit-commit-message', { selector: '.part.panel', maxHeight: 520 });
 		log.dialogs.dispose();
 		await vscode.commands.executeCommand('workbench.action.toggleMaximizedPanel').then(undefined, () => undefined);
 		await vscode.commands.executeCommand('workbench.action.closePanel');
@@ -105,7 +130,7 @@ export async function run(): Promise<void> {
 	await step('branches popup', async () => {
 		void vscode.commands.executeCommand('changeline.branches');
 		await sleep(1500);
-		await shot('04-branches-popup');
+		await shot('04-branches-popup', { selector: '.quick-input-widget', margin: 8 });
 		await vscode.commands.executeCommand('workbench.action.closeQuickOpen');
 		await sleep(300);
 	});
@@ -113,7 +138,7 @@ export async function run(): Promise<void> {
 	await step('vcs operations', async () => {
 		void vscode.commands.executeCommand('changeline.vcsOperations');
 		await sleep(1200);
-		await shot('05-vcs-operations');
+		await shot('05-vcs-operations', { selector: '.quick-input-widget', margin: 8 });
 		await vscode.commands.executeCommand('workbench.action.closeQuickOpen');
 	});
 
@@ -239,4 +264,5 @@ export async function run(): Promise<void> {
 		await shot('13-merge-state-status-bar');
 		await repo.abortOperation();
 	});
+	closeCdp();
 }

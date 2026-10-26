@@ -4,6 +4,30 @@ Changeline brings the Git workflow known from JetBrains IDEs (PhpStorm, IntelliJ
 
 It talks to the `git` executable directly and works next to (or instead of) VS Code's built-in Git support.
 
+![Commit tool window with changelists next to the diff viewer with a checkbox per change for partial commits](docs/screenshots/02-diff-viewer.png)
+
+## Screenshots
+
+### Git log
+
+![Git log with branches pane, commit graph, branch and tag labels and the changed files of the selected commit](docs/screenshots/03-git-log.png)
+
+### Branches popup
+
+![Branches popup with actions, recent, local and remote branches and tags](docs/screenshots/04-branches-popup.png)
+
+### Three-way merge
+
+![Three-way merge window with your version, the result and the incoming changes](docs/screenshots/12-merge-window.png)
+
+### Interactive rebase
+
+![Interactive rebase dialog with pick, edit, reword, squash, fixup and drop](docs/screenshots/09-interactive-rebase.png)
+
+### Push dialog
+
+![Push dialog with the commits to push, the target branch and the changed files](docs/screenshots/08-push-dialog.png)
+
 ## Where to find what
 
 | JetBrains | Changeline |

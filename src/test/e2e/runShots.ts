@@ -9,8 +9,11 @@ async function main() {
 	const root = path.resolve(__dirname, '../../..');
 	const out = process.argv[2] ?? path.join(root, 'screenshots');
 	fs.mkdirSync(out, { recursive: true });
-	const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'jgshot-'));
-	const remote = fs.mkdtempSync(path.join(os.tmpdir(), 'jgremote-'));
+	const base = fs.mkdtempSync(path.join(os.tmpdir(), 'changeline-shots-'));
+	const ws = path.join(base, 'site-package');
+	const remote = path.join(base, 'remote.git');
+	fs.mkdirSync(ws);
+	fs.mkdirSync(remote);
 	const git = (cwd: string, ...args: string[]) => cp.execFileSync('git', ['-c', 'user.name=Marlon Lange', '-c', 'user.email=marlon@example.com', ...args], { cwd, stdio: 'pipe' });
 	git(remote, 'init', '-q', '--bare', '-b', 'main');
 	git(ws, 'init', '-q', '-b', 'main');
@@ -57,7 +60,7 @@ async function main() {
 	fs.rmSync(path.join(ws, 'composer.json'));
 	write('notes.txt', 'todo\n');
 	git(ws, 'add', 'Tests/Unit/RateLimiterTest.php');
-	const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jgud-'));
+	const userData = path.join(base, 'user-data');
 	fs.mkdirSync(path.join(userData, 'User'), { recursive: true });
 	fs.writeFileSync(path.join(userData, 'User', 'settings.json'), JSON.stringify({
 		'workbench.colorTheme': 'Default Dark Modern',
@@ -72,12 +75,10 @@ async function main() {
 			extensionDevelopmentPath: root,
 			extensionTestsPath: path.join(__dirname, 'shots.js'),
 			launchArgs: [ws, `--user-data-dir=${userData}`, '--disable-extensions', '--disable-workspace-trust', '--skip-welcome', '--skip-release-notes', '--remote-debugging-port=9333'],
-			extensionTestsEnv: { CHANGELINE_SHOTS_DIR: out, CHANGELINE_E2E_WORKSPACE: ws },
+			extensionTestsEnv: { CHANGELINE_SHOTS_DIR: out, CHANGELINE_E2E_WORKSPACE: ws, CHANGELINE_CDP_PORT: '9333' },
 		});
 	} finally {
-		fs.rmSync(ws, { recursive: true, force: true });
-		fs.rmSync(remote, { recursive: true, force: true });
-		fs.rmSync(userData, { recursive: true, force: true });
+		fs.rmSync(base, { recursive: true, force: true });
 	}
 }
 
