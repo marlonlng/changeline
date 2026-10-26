@@ -333,26 +333,41 @@ async function overlayShown(v: Webview, selector: string, overlay: DialogOverlay
 const dialogTabs = () =>
 	vscode.window.tabGroups.all.flatMap((g) => g.tabs).filter((t) => t.input instanceof vscode.TabInputWebview && t.input.viewType.endsWith('changeline.dialog'));
 
+/** Maximizes or restores the panel, so dialogs fit as overlay into the log even on small screens. */
+async function maximizePanel(on: boolean): Promise<void> {
+	const wb = await workbench();
+	const maximized = () => wb.eval<boolean>(`document.querySelector('.part.panel').getBoundingClientRect().height > window.innerHeight * 0.6`);
+	if ((await maximized()) !== on) {
+		await vscode.commands.executeCommand('workbench.action.toggleMaximizedPanel');
+		await waitFor(async () => (await maximized()) === on, on ? 'panel maximized' : 'panel restored');
+	}
+}
+
 test('dialogs from the log open as overlay in the log: edit commit message, Escape cancels', async () => {
 	await commitFile('overlay.txt', 'overlay\n', 'overlay before');
 	await vscode.commands.executeCommand('changeline.showLog');
-	const log = await webview('Log');
-	const logId = api._test.logView.current!.id;
-	void vscode.commands.executeCommand('changeline.log.editMessage', { logId, hash: (await repo().revParse('HEAD'))! });
-	const dialogs = api._test.logView.current!.dialogs;
-	await overlayShown(log, 'textarea', dialogs, 'edit message overlay in the log');
-	assert.match(await log.eval<string>(`document.querySelector('.jg-dialog-overlay textarea').value`), /^overlay before/);
-	assert.equal(dialogTabs().length, 0, 'no dialog tab');
-	await log.type('.jg-dialog-overlay textarea', 'overlay after');
-	await log.clickText('.jg-dialog-overlay .buttons .jg-btn.primary', 'OK');
-	await waitFor(async () => (await repo().getCommit('HEAD')).subject === 'overlay after', 'message changed');
-	await log.waitFor(`!document.querySelector('.jg-dialog-overlay')`, 'overlay closed after OK');
+	await maximizePanel(true);
+	try {
+		const log = await webview('Log');
+		const logId = api._test.logView.current!.id;
+		const dialogs = api._test.logView.current!.dialogs;
+		void vscode.commands.executeCommand('changeline.log.editMessage', { logId, hash: (await repo().revParse('HEAD'))! });
+		await overlayShown(log, 'textarea', dialogs, 'edit message overlay in the log');
+		assert.match(await log.eval<string>(`document.querySelector('.jg-dialog-overlay textarea').value`), /^overlay before/);
+		assert.equal(dialogTabs().length, 0, 'no dialog tab');
+		await log.type('.jg-dialog-overlay textarea', 'overlay after');
+		await log.clickText('.jg-dialog-overlay .buttons .jg-btn.primary', 'OK');
+		await waitFor(async () => (await repo().getCommit('HEAD')).subject === 'overlay after', 'message changed');
+		await log.waitFor(`!document.querySelector('.jg-dialog-overlay')`, 'overlay closed after OK');
 
-	void vscode.commands.executeCommand('changeline.log.editMessage', { logId, hash: (await repo().revParse('HEAD'))! });
-	await overlayShown(log, 'textarea', dialogs, 'overlay opened again');
-	await log.key('Escape', {}, '.jg-dialog-overlay textarea');
-	await log.waitFor(`!document.querySelector('.jg-dialog-overlay')`, 'Escape closes the overlay');
-	assert.equal((await repo().getCommit('HEAD')).subject, 'overlay after');
+		void vscode.commands.executeCommand('changeline.log.editMessage', { logId, hash: (await repo().revParse('HEAD'))! });
+		await overlayShown(log, 'textarea', dialogs, 'overlay opened again');
+		await log.key('Escape', {}, '.jg-dialog-overlay textarea');
+		await log.waitFor(`!document.querySelector('.jg-dialog-overlay')`, 'Escape closes the overlay');
+		assert.equal((await repo().getCommit('HEAD')).subject, 'overlay after');
+	} finally {
+		await maximizePanel(false);
+	}
 });
 
 test('single-choice dialogs are quick picks: reset from the log', async () => {
@@ -635,6 +650,7 @@ test('pull requests panel (GitLab API mock): list, state and text filters, detai
 		await v.clickText('.composer-buttons .jg-btn', 'Comment');
 		await waitFor(() => posted.find((x) => x.path === '/merge_requests/12/notes'), 'comment posted');
 		assert.equal(posted.find((x) => x.path === '/merge_requests/12/notes')!.body.body, 'Looks good to me');
+		await v.waitFor(`[...document.querySelectorAll('.composer-buttons .jg-btn')].some((b) => b.textContent.includes('Approve') && !b.disabled)`, 'approve enabled after the comment');
 		await v.clickText('.composer-buttons .jg-btn', 'Approve');
 		await waitFor(() => posted.some((x) => x.path === '/merge_requests/12/approve'), 'approved');
 	} finally {

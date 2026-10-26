@@ -1,6 +1,6 @@
 import type { DialogField, DialogSpec } from './types';
 
-export const OVERLAY_MIN_WIDTH = 280;
+export const OVERLAY_MIN_WIDTH = 220;
 export const OVERLAY_MIN_SCROLL_HEIGHT = 240;
 export const OVERLAY_PADDING = 8;
 

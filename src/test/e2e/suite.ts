@@ -241,7 +241,7 @@ test('merge requests: list, fetch the head and add a review line comment (GitLab
 	const cp = await import('child_process');
 	const services = api._test.services;
 	const repo = services().repos.repositories.find((r) => fs.realpathSync(r.root) === fs.realpathSync(ws))!;
-	const srv = fs.mkdtempSync(path.join(require('os').tmpdir(), 'jgsrv-'));
+	const srv = fs.mkdtempSync(path.join(require('os').tmpdir(), 'changeline-git-server-'));
 	const bare = path.join(srv, 'group', 'project.git');
 	fs.mkdirSync(path.dirname(bare), { recursive: true });
 	cp.execFileSync('git', ['clone', '-q', '--bare', ws, bare]);
@@ -353,7 +353,7 @@ test('merge requests: list, fetch the head and add a review line comment (GitLab
 		server.close();
 		await repo.removeRemote('origin').catch(() => undefined);
 		await vscode.workspace.getConfiguration('changeline').update('gitlab.hosts', undefined, vscode.ConfigurationTarget.Global);
-		fs.rmSync(srv, { recursive: true, force: true });
+		fs.rmSync(srv, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 	}
 });
 

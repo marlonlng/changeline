@@ -26,5 +26,6 @@ test('overlayFits: the dialog fits, or the webview is tall enough to scroll it',
 	assert.equal(overlayFits({ width: 800, height: 260 }, 500), true);
 	assert.equal(overlayFits({ width: 800, height: 180 }, 160), true);
 	assert.equal(overlayFits({ width: 800, height: 180 }, 300), false);
-	assert.equal(overlayFits({ width: 240, height: 900 }, 300), false);
+	assert.equal(overlayFits({ width: 254, height: 582 }, 300), true);
+	assert.equal(overlayFits({ width: 200, height: 900 }, 300), false);
 });

@@ -36,7 +36,7 @@ export class MergePanel extends WebviewPanelBase {
 	}
 
 	private constructor(private readonly req: MergeRequest) {
-		super(services().context.extensionUri, 'changeline.merge', vscode.l10n.t('Merge: {0}', basename(req.path)), 'merge', null, vscode.ViewColumn.Active);
+		super(services().context.extensionUri, 'changeline.merge', vscode.l10n.t('Merge: {0}', path.basename(req.path)), 'merge', null, vscode.ViewColumn.Active);
 	}
 
 	protected handlers(): RpcHandlers {
