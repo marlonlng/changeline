@@ -353,7 +353,11 @@ test('merge requests: list, fetch the head and add a review line comment (GitLab
 		server.close();
 		await repo.removeRemote('origin').catch(() => undefined);
 		await vscode.workspace.getConfiguration('changeline').update('gitlab.hosts', undefined, vscode.ConfigurationTarget.Global);
-		fs.rmSync(srv, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+		try {
+			fs.rmSync(srv, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+		} catch {
+			console.log(`  (could not remove ${srv}; it is in the system temp folder)`);
+		}
 	}
 });
 
