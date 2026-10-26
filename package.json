@@ -5,6 +5,14 @@
 	"version": "0.1.0",
 	"publisher": "marlonlange",
 	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/marlonlng/changeline.git"
+	},
+	"bugs": {
+		"url": "https://github.com/marlonlng/changeline/issues"
+	},
+	"homepage": "https://github.com/marlonlng/changeline#readme",
 	"icon": "media/icon.png",
 	"engines": {
 		"vscode": "^1.90.0"
@@ -2789,7 +2797,7 @@
 		"test:unit": "tsc -p tsconfig.json && node --test \"out/test/unit/*.test.js\" \"out/test/integration/*.test.js\"",
 		"test:e2e": "node esbuild.mjs && tsc -p tsconfig.json && node out/test/e2e/runTests.js",
 		"vscode:prepublish": "node esbuild.mjs --production",
-		"package": "vsce package --no-dependencies --no-rewrite-relative-links --allow-missing-repository"
+		"package": "vsce package --no-dependencies"
 	},
 	"dependencies": {
 		"highlight.js": "^11.12.0",

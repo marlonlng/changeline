@@ -38,7 +38,7 @@ jobs:
         run: node out/test/e2e/runTests.js
       - name: Package
         if: runner.os == 'Linux'
-        run: npx vsce package --no-dependencies --no-rewrite-relative-links --allow-missing-repository
+        run: npx vsce package --no-dependencies
       - uses: actions/upload-artifact@v4
         if: runner.os == 'Linux'
         with:
