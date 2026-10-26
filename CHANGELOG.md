@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- Fixed the merge window title on Windows, which showed the full path instead of the file name
+- Dialogs from the Commit tool window now open as overlay at the default sidebar width instead of falling back to an editor tab
+
 ## 0.1.0
 
 First release.
