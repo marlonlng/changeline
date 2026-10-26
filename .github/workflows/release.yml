@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Tag matches package.json version
+        run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+      - name: Git identity for test repositories
+        run: |
+          git config --global user.name "Changeline CI"
+          git config --global user.email "ci@example.com"
+          git config --global init.defaultBranch main
+      - name: Build
+        run: node esbuild.mjs
+      - name: Type check
+        run: npx tsc -p tsconfig.json && npx tsc -p webview-src/tsconfig.json
+      - name: Unit and integration tests
+        run: node --test "out/test/unit/*.test.js" "out/test/integration/*.test.js"
+      - name: Package
+        run: npx vsce package --no-dependencies
+      - name: Release notes from CHANGELOG.md
+        run: awk -v v="${GITHUB_REF_NAME#v}" '/^## / { p = ($2 == v); next } p' CHANGELOG.md > notes.md
+      - name: GitHub release with the VSIX
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" changeline-*.vsix --title "Changeline ${GITHUB_REF_NAME#v}" --notes-file notes.md --verify-tag

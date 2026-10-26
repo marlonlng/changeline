@@ -139,4 +139,6 @@ node out/test/e2e/runShots.js docs/screenshots   # screenshots of the real UI vi
 npm run package        # creates changeline-<version>.vsix
 ```
 
+Pushing a tag `vX.Y.Z` that matches the version in `package.json` builds and tests the extension and attaches the VSIX to a GitHub release (`.github/workflows/release.yml`).
+
 `test-harness/index.html?view=log|diff|merge|commitMessage|dialog|push|rebase|conflicts|compare` renders every webview with mock data in a normal browser (serve the repository root with any static file server).
