@@ -7,6 +7,10 @@ export interface TargetInfo {
 
 type Pending = { resolve: (v: any) => void; reject: (e: Error) => void };
 
+export class CdpTimeoutError extends Error {}
+
+const ANSWER_TIMEOUT_MS = 15000;
+
 export class Cdp {
 	private nextId = 1;
 	private readonly pending = new Map<number, Pending>();
@@ -43,10 +47,26 @@ export class Cdp {
 		return new Cdp(ws);
 	}
 
+	/** Sends a command; rejects with CdpTimeoutError when the browser does not answer in time, so a hung frame cannot block a test. */
 	send<T = any>(method: string, params: object = {}, sessionId?: string): Promise<T> {
 		const id = this.nextId++;
 		this.ws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
-		return new Promise<T>((resolve, reject) => this.pending.set(id, { resolve, reject }));
+		return new Promise<T>((resolve, reject) => {
+			const timer = setTimeout(() => {
+				this.pending.delete(id);
+				reject(new CdpTimeoutError(`CDP ${method} got no answer within ${ANSWER_TIMEOUT_MS} ms`));
+			}, ANSWER_TIMEOUT_MS);
+			this.pending.set(id, {
+				resolve: (v) => {
+					clearTimeout(timer);
+					resolve(v);
+				},
+				reject: (e) => {
+					clearTimeout(timer);
+					reject(e);
+				},
+			});
+		});
 	}
 
 	on(listener: (method: string, params: any, sessionId?: string) => void): void {

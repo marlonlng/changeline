@@ -1,4 +1,4 @@
-import { Cdp } from './cdp';
+import { Cdp, CdpTimeoutError } from './cdp';
 import { waitFor } from './harness';
 
 export class Webview {
@@ -9,8 +9,20 @@ export class Webview {
 		private readonly matcher: string | RegExp,
 	) {}
 
-	/** Evaluates an expression in the webview (promises are awaited). */
+	/** Evaluates an expression in the webview (promises are awaited); a call without answer is tried once more. */
 	async eval<T = unknown>(expression: string): Promise<T> {
+		try {
+			return await this.evalOnce<T>(expression);
+		} catch (e) {
+			if (!(e instanceof CdpTimeoutError)) {
+				throw e;
+			}
+			debug(`retrying after ${e.message}: ${expression.slice(0, 80)}`);
+			return this.evalOnce<T>(expression);
+		}
+	}
+
+	private async evalOnce<T>(expression: string): Promise<T> {
 		const params = { expression, awaitPromise: true, returnByValue: true };
 		const started = Date.now();
 		if (![...sessions.values()].some((s) => s.sessionId === this.target.sessionId && s.contexts.has(this.target.contextId))) {
