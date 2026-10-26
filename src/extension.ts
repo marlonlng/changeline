@@ -23,6 +23,7 @@ import { services, setServices } from './services';
 import { ShelfManager } from './shelf';
 import { StatusBar } from './statusBar';
 import { config } from './util';
+import type { DialogOverlay } from './webviews/dialogOverlay';
 import { setDialogResponder } from './webviews/dialogPanel';
 import { DiffPanel } from './webviews/diffPanel';
 import { ChangesView } from './views/changesView';
@@ -36,7 +37,7 @@ import { StashView } from './views/stashView';
 
 export interface ChangelineApi {
 	readonly repositories: () => { root: string; branch?: string }[];
-	readonly _test: { changesView: ChangesView; commit: CommitController; logView: LogViewProvider; blame: BlameController; services: typeof services; multi: typeof multi; pullRequests: PullRequestsView; hosting: typeof hosting; scm: ScmIntegration; setDialogResponder: typeof setDialogResponder; diffPanel: () => DiffPanel | undefined };
+	readonly _test: { changesView: ChangesView; commit: CommitController; logView: LogViewProvider; blame: BlameController; services: typeof services; multi: typeof multi; pullRequests: PullRequestsView; hosting: typeof hosting; scm: ScmIntegration; setDialogResponder: typeof setDialogResponder; diffPanel: () => DiffPanel | undefined; commitDialogs: DialogOverlay };
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<ChangelineApi | undefined> {
@@ -204,7 +205,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Change
 
 	return {
 		repositories: () => services().repos.repositories.map((r) => ({ root: r.root, branch: r.state.branch })),
-		_test: { changesView, commit, logView, blame, services, multi, pullRequests, hosting, scm, setDialogResponder, diffPanel: () => DiffPanel.open },
+		_test: { changesView, commit, logView, blame, services, multi, pullRequests, hosting, scm, setDialogResponder, diffPanel: () => DiffPanel.open, commitDialogs: messageView.dialogs },
 	};
 }
 

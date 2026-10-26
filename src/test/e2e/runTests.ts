@@ -30,8 +30,8 @@ function stubLanguagePack(userData: string): void {
 
 async function runSuite(suite: string): Promise<void> {
 	const root = path.resolve(__dirname, '../../..');
-	const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'changeline-e2e-'));
-	const gitConfig = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jggc-')), 'gitconfig');
+	const workspace = fs.mkdtempSync(path.join(fs.realpathSync.native(os.tmpdir()), 'changeline-e2e-'));
+	const gitConfig = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'changeline-gitconfig-')), 'gitconfig');
 	fs.writeFileSync(gitConfig, '[user]\n\tname = E2E Tester\n\temail = e2e@example.com\n[commit]\n\tgpgsign = false\n[init]\n\tdefaultBranch = main\n');
 	const gitEnv = { GIT_CONFIG_GLOBAL: gitConfig, GIT_CONFIG_NOSYSTEM: '1' };
 	const git = (...args: string[]) => cp.execFileSync('git', args, { cwd: workspace, stdio: 'pipe', env: { ...process.env, ...gitEnv } });
@@ -44,7 +44,7 @@ async function runSuite(suite: string): Promise<void> {
 	fs.writeFileSync(path.join(workspace, 'b.txt'), 'bee feature\n');
 	git('commit', '-qam', 'feature change');
 	git('checkout', '-q', 'main');
-	const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jgud-'));
+	const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'changeline-user-data-'));
 	if (suite === 'locale.js') {
 		stubLanguagePack(userData);
 	}

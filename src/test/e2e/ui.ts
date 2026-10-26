@@ -7,7 +7,8 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import type { ChangelineApi } from '../../extension';
 import { EXTENSION_ID, runAll, test, waitFor } from './harness';
-import { closeCdp, setWindowSize, webview, workbench } from './webview';
+import type { DialogOverlay } from '../../webviews/dialogOverlay';
+import { closeCdp, setWindowSize, Webview, webview, workbench } from './webview';
 
 
 const ws = process.env['CHANGELINE_E2E_WORKSPACE']!;
@@ -320,6 +321,15 @@ test('dialogs: New Branch validates the name and creates the branch without chec
 	assert.equal(repo().state.branch, 'main', 'not checked out');
 });
 
+/** Waits until the dialog overlay with `selector` is shown in the webview; on timeout the error names why the overlay fell back. */
+async function overlayShown(v: Webview, selector: string, overlay: DialogOverlay, what: string): Promise<void> {
+	try {
+		await v.waitFor(`!!document.querySelector('.jg-dialog-overlay:not(.measuring) ${selector}')`, what);
+	} catch (e) {
+		throw new Error(`${(e as Error).message}; overlay fallback: ${overlay.lastFallback ?? 'none'}`);
+	}
+}
+
 const dialogTabs = () =>
 	vscode.window.tabGroups.all.flatMap((g) => g.tabs).filter((t) => t.input instanceof vscode.TabInputWebview && t.input.viewType.endsWith('changeline.dialog'));
 
@@ -329,7 +339,9 @@ test('dialogs from the log open as overlay in the log: edit commit message, Esca
 	const log = await webview('Log');
 	const logId = api._test.logView.current!.id;
 	void vscode.commands.executeCommand('changeline.log.editMessage', { logId, hash: (await repo().revParse('HEAD'))! });
-	await log.waitFor(`document.querySelector('.jg-dialog-overlay:not(.measuring) textarea')?.value.startsWith('overlay before')`, 'edit message overlay in the log');
+	const dialogs = api._test.logView.current!.dialogs;
+	await overlayShown(log, 'textarea', dialogs, 'edit message overlay in the log');
+	assert.match(await log.eval<string>(`document.querySelector('.jg-dialog-overlay textarea').value`), /^overlay before/);
 	assert.equal(dialogTabs().length, 0, 'no dialog tab');
 	await log.type('.jg-dialog-overlay textarea', 'overlay after');
 	await log.clickText('.jg-dialog-overlay .buttons .jg-btn.primary', 'OK');
@@ -337,7 +349,7 @@ test('dialogs from the log open as overlay in the log: edit commit message, Esca
 	await log.waitFor(`!document.querySelector('.jg-dialog-overlay')`, 'overlay closed after OK');
 
 	void vscode.commands.executeCommand('changeline.log.editMessage', { logId, hash: (await repo().revParse('HEAD'))! });
-	await log.waitFor(`!!document.querySelector('.jg-dialog-overlay:not(.measuring) textarea')`, 'overlay opened again');
+	await overlayShown(log, 'textarea', dialogs, 'overlay opened again');
 	await log.key('Escape', {}, '.jg-dialog-overlay textarea');
 	await log.waitFor(`!document.querySelector('.jg-dialog-overlay')`, 'Escape closes the overlay');
 	assert.equal((await repo().getCommit('HEAD')).subject, 'overlay after');
@@ -373,7 +385,7 @@ test('dialogs from the Commit tool window open as overlay in the commit message 
 		const cv = await webview('Commit');
 		await cv.waitFor(`window.innerHeight >= 240`, 'commit message view has room', 10000, `window.innerHeight`);
 		void vscode.commands.executeCommand('changeline.changes.newChangelist');
-		await cv.waitFor(`!!document.querySelector('.jg-dialog-overlay:not(.measuring) input[type="text"]')`, 'new changelist overlay');
+		await overlayShown(cv, 'input[type="text"]', api._test.commitDialogs, 'new changelist overlay');
 		assert.equal(dialogTabs().length, 0, 'no dialog tab');
 		await cv.type('.jg-dialog-overlay input[type="text"]', 'Overlay list');
 		await cv.clickText('.jg-dialog-overlay .buttons .jg-btn.primary', 'OK');

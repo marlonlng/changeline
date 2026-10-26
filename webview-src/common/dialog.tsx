@@ -317,8 +317,9 @@ function DialogLayer() {
 			return;
 		}
 		const box = layer.current?.querySelector('.jg-dialog') as HTMLElement | null;
-		const fits = !!box && overlayFits({ width: window.innerWidth, height: window.innerHeight }, box.offsetHeight);
-		void call('dialog.shown', { id: open.id, fits });
+		const dialogHeight = box?.offsetHeight ?? 0;
+		const fits = !!box && overlayFits({ width: window.innerWidth, height: window.innerHeight }, dialogHeight);
+		void call('dialog.shown', { id: open.id, fits, width: window.innerWidth, height: window.innerHeight, dialogHeight });
 		if (fits) {
 			setShown(true);
 		} else {

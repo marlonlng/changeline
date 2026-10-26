@@ -47,14 +47,18 @@ interface OpenDialog {
 export class DialogOverlay implements vscode.Disposable {
 	private current?: OpenDialog;
 	private ready = false;
+	lastFallback?: string;
 
 	constructor(private readonly emit: (name: string, data: unknown) => void, private readonly surface: DialogSurface) {}
 
 	/** Shows the dialog as a modal overlay; UNAVAILABLE when the webview is hidden, still loading, busy or too small for it. */
 	show(spec: DialogSpec, validate?: DialogValidator): Promise<DialogResult | undefined | typeof UNAVAILABLE> {
-		if (this.current || !this.ready || !this.surface.visible()) {
+		const blocked = this.current ? 'busy' : !this.ready ? 'loading' : !this.surface.visible() ? 'hidden' : undefined;
+		if (blocked) {
+			this.lastFallback = blocked;
 			return Promise.resolve(UNAVAILABLE);
 		}
+		this.lastFallback = undefined;
 		const id = ++counter;
 		return new Promise((resolve) => {
 			const finish = (result: DialogResult | undefined | typeof UNAVAILABLE) => {
@@ -66,7 +70,11 @@ export class DialogOverlay implements vscode.Disposable {
 				this.emit('dialog.close', { id });
 				resolve(result);
 			};
-			this.current = { id, validate, finish, timer: setTimeout(() => finish(UNAVAILABLE), SHOW_TIMEOUT_MS) };
+			const timeout = () => {
+				this.lastFallback = 'no answer';
+				finish(UNAVAILABLE);
+			};
+			this.current = { id, validate, finish, timer: setTimeout(timeout, SHOW_TIMEOUT_MS) };
 			this.surface.reveal();
 			this.emit('dialog.open', { id, spec });
 		});
@@ -77,11 +85,12 @@ export class DialogOverlay implements vscode.Disposable {
 			'dialog.ready': () => {
 				this.ready = true;
 			},
-			'dialog.shown': (p: { id: number; fits: boolean }) => {
+			'dialog.shown': (p: { id: number; fits: boolean; width: number; height: number; dialogHeight: number }) => {
 				const c = this.current;
 				if (c?.id === p.id) {
 					clearTimeout(c.timer);
 					if (!p.fits) {
+						this.lastFallback = `too small: webview ${p.width}×${p.height}, dialog ${p.dialogHeight}`;
 						c.finish(UNAVAILABLE);
 					}
 				}
