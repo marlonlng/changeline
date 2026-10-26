@@ -203,6 +203,15 @@ export async function workbench(): Promise<Webview> {
 	return new Webview(c, { sessionId: s.sessionId, contextId }, 'workbench', /workbench/);
 }
 
+/** Lays the workbench out for a fixed viewport size, so layout-dependent tests see the same space on every machine. */
+export async function setWindowSize(width: number, height: number): Promise<void> {
+	const wb = await workbench();
+	const c = await connection();
+	await c.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 0, mobile: false }, wb.target.sessionId);
+	await wb.waitFor(`window.innerWidth === ${width} && window.innerHeight === ${height}`, 'workbench resized');
+	await new Promise((r) => setTimeout(r, 500));
+}
+
 export function closeCdp(): void {
 	cdp?.close();
 	cdp = undefined;

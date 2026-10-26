@@ -7,7 +7,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import type { ChangelineApi } from '../../extension';
 import { EXTENSION_ID, runAll, test, waitFor } from './harness';
-import { closeCdp, webview, workbench } from './webview';
+import { closeCdp, setWindowSize, webview, workbench } from './webview';
 
 
 const ws = process.env['CHANGELINE_E2E_WORKSPACE']!;
@@ -459,7 +459,8 @@ test('branches popup: sections, favorites star, branch actions, compare with bra
 			const x = await quickPickRows();
 			return x.some((t) => t.includes('feature')) && x;
 		}, 'branches shown in the workbench');
-		const all = rows.join('\n');
+		assert.ok(rows.some((t) => t.includes('Update Project')), rows.join('\n'));
+		const all = qp.items.map((i: vscode.QuickPickItem) => `${i.label} ${i.description ?? ''}`).join('\n');
 		for (const t of ['Update Project', 'Commit...', 'Push...', 'New Branch...', 'Checkout Tag or Revision', 'Local', 'main', 'feature', 'ui-branch', 'Remote', 'origin/main', 'Tags', 'v-ui']) {
 			assert.ok(all.includes(t), `"${t}" in the popup:\n${all}`);
 		}
@@ -495,16 +496,24 @@ test('branches popup: sections, favorites star, branch actions, compare with bra
 });
 
 test('VCS operations popup lists the Git actions', async () => {
-	void vscode.commands.executeCommand('changeline.vcsOperations');
-	const rows = await waitFor(async () => {
-		const x = await quickPickRows();
-		return x.some((t) => t.includes('Branches...')) && x;
-	}, 'VCS operations popup');
-	const all = rows.join('\n');
-	for (const t of ['Commit...', 'Push...', 'Update Project...', 'Pull...', 'Fetch', 'Branches...', 'New Branch...', 'New Tag...', 'Merge...', 'Rebase...', 'Reset HEAD...', 'Stash Changes...', 'Unstash Changes...', 'Shelve Changes...', 'Rollback...', 'Show Git Log', 'Create Pull Request...']) {
-		assert.ok(all.includes(t), `"${t}" in the popup:\n${all}`);
+	const w = vscode.window as any;
+	const show = w.showQuickPick;
+	let items: vscode.QuickPickItem[] = [];
+	w.showQuickPick = (picks: vscode.QuickPickItem[], ...rest: unknown[]) => {
+		items = picks;
+		return show(picks, ...rest);
+	};
+	try {
+		void vscode.commands.executeCommand('changeline.vcsOperations');
+		await waitFor(async () => (await quickPickRows()).some((t) => t.includes('Commit...')), 'VCS operations popup');
+		const all = items.map((i) => i.label).join('\n');
+		for (const t of ['Commit...', 'Push...', 'Update Project...', 'Pull...', 'Fetch', 'Branches...', 'New Branch...', 'New Tag...', 'Merge...', 'Rebase...', 'Reset HEAD...', 'Stash Changes...', 'Unstash Changes...', 'Shelve Changes...', 'Rollback...', 'Show Git Log', 'Create Pull Request...']) {
+			assert.ok(all.includes(t), `"${t}" in the popup:\n${all}`);
+		}
+	} finally {
+		w.showQuickPick = show;
+		await vscode.commands.executeCommand('workbench.action.closeQuickOpen');
 	}
-	await vscode.commands.executeCommand('workbench.action.closeQuickOpen');
 });
 
 test('Local Changes tree: group by directory', async () => {
@@ -673,6 +682,8 @@ test('Commit icon badge: each changed file once, shelf and stash not added', asy
 
 export async function run(): Promise<void> {
 	try {
+		const [width, height] = (process.env['CHANGELINE_E2E_WINDOW'] ?? '1280x800').split('x').map(Number);
+		await setWindowSize(width, height);
 		await runAll();
 	} finally {
 		closeCdp();

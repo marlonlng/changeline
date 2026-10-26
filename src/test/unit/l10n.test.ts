@@ -103,7 +103,7 @@ test('l10n: translations keep placeholders and codicons', () => {
 });
 
 test('l10n: the extension package includes the translation files', () => {
-	const included = fs.readFileSync(path.join(root, '.vscodeignore'), 'utf8').split('\n').filter((l) => l.startsWith('!'));
+	const included = fs.readFileSync(path.join(root, '.vscodeignore'), 'utf8').split(/\r?\n/).filter((l) => l.startsWith('!'));
 	for (const entry of ['!package.nls.json', '!package.nls.de.json', '!l10n/*.json']) {
 		assert.ok(included.includes(entry), `.vscodeignore keeps ${entry.slice(1)}`);
 	}

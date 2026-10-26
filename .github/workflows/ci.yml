@@ -32,7 +32,7 @@ jobs:
         run: node --test "out/test/unit/*.test.js" "out/test/integration/*.test.js"
       - name: End-to-end tests in VS Code (Linux)
         if: runner.os == 'Linux'
-        run: xvfb-run -a node out/test/e2e/runTests.js
+        run: xvfb-run -a --server-args="-screen 0 1920x1080x24" node out/test/e2e/runTests.js
       - name: End-to-end tests in VS Code (Windows, macOS)
         if: runner.os != 'Linux'
         run: node out/test/e2e/runTests.js
