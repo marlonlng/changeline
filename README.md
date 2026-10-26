@@ -113,7 +113,7 @@ The user interface is available in English and German and follows VS Code's disp
 
 ## Platforms
 
-All test suites run on macOS and Linux. Windows has not been tested on a real machine; only the Windows path handling is covered by unit tests.
+Every push runs all test suites (unit, integration and end-to-end inside VS Code) on Windows, macOS and Linux in GitHub Actions. Day-to-day use has so far been on macOS; please report problems on other systems as [issues](https://github.com/marlonlng/changeline/issues).
 
 ## Privacy
 
