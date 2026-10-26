@@ -1,0 +1,135 @@
+.rebase-view {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.rebase-view .body {
+	flex: 1;
+	min-height: 0;
+	border-bottom: 1px solid var(--jg-border);
+}
+
+.action-btn {
+	height: 24px;
+	padding: 0 10px;
+}
+
+.action-btn.active {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.rebase-view .list {
+	flex: none;
+	overflow: auto;
+	outline: none;
+}
+
+.entry .badge {
+	width: 52px;
+	flex: none;
+	text-align: center;
+	font-size: 0.8em;
+	line-height: 16px;
+	border-radius: 3px;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+}
+
+.entry .badge.drop {
+	background: var(--vscode-inputValidation-errorBackground, #5a1d1d);
+	color: var(--vscode-foreground);
+}
+
+.entry .badge.squash,
+.entry .badge.fixup {
+	background: var(--vscode-inputValidation-warningBackground, #5a4a1d);
+	color: var(--vscode-foreground);
+}
+
+.entry .badge.reword,
+.entry .badge.edit {
+	background: var(--vscode-inputValidation-infoBackground, #1d3b5a);
+	color: var(--vscode-foreground);
+}
+
+.entry.action-drop .name {
+	text-decoration: line-through;
+	opacity: 0.6;
+}
+
+.entry.action-squash,
+.entry.action-fixup {
+	padding-left: 22px;
+}
+
+.entry .hash {
+	font-family: var(--jg-mono);
+	color: var(--jg-muted);
+	flex: none;
+}
+
+.entry .name {
+	flex: 1;
+}
+
+.base-row {
+	padding: 4px 10px;
+	font-size: 0.9em;
+}
+
+.detail-pane {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	overflow: auto;
+	padding: 8px 12px;
+	gap: 10px;
+}
+
+.message-editor {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.message-editor .label {
+	font-weight: 600;
+}
+
+.message-editor textarea {
+	min-height: 120px;
+	resize: vertical;
+	line-height: 1.4;
+}
+
+.commit-details .subject {
+	font-weight: 600;
+}
+
+.commit-details .body {
+	white-space: pre-wrap;
+	font-family: inherit;
+	margin: 4px 0;
+}
+
+.commit-details .meta {
+	font-size: 0.92em;
+	margin-bottom: 6px;
+}
+
+.rebase-view .footer {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 12px;
+	flex: none;
+}
+
+.rebase-view .footer .spacer {
+	flex: 1;
+}

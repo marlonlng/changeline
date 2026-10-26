@@ -1,0 +1,103 @@
+.conflicts {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	padding: 12px 16px;
+	gap: 10px;
+	max-width: 1100px;
+}
+
+.conflicts h2 {
+	margin: 0 0 4px;
+	font-size: 1.3em;
+	font-weight: 600;
+}
+
+.conflicts .header p {
+	margin: 0;
+}
+
+.conflicts .body {
+	flex: 1;
+	display: flex;
+	gap: 12px;
+	min-height: 0;
+}
+
+.conflicts .table {
+	flex: 1;
+	overflow: auto;
+	border: 1px solid var(--jg-border);
+	border-radius: 3px;
+	outline: none;
+}
+
+.conflicts .group-title {
+	padding: 6px 8px;
+	font-weight: 600;
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	border-bottom: 1px solid var(--jg-border);
+	background: var(--vscode-editorWidget-background);
+}
+
+.conflicts .abort {
+	margin-left: auto;
+	font-weight: normal;
+}
+
+.conflicts .thead,
+.conflicts .trow {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 110px 110px;
+	gap: 8px;
+}
+
+.conflicts .thead {
+	padding: 3px 8px;
+	color: var(--jg-muted);
+	font-size: 0.9em;
+	border-bottom: 1px solid var(--jg-border);
+}
+
+.conflicts .name-cell {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.conflicts .state.deleted {
+	color: var(--jg-deleted);
+}
+
+.conflicts .state.added {
+	color: var(--jg-added);
+}
+
+.conflicts .state.modified {
+	color: var(--jg-modified);
+}
+
+.conflicts .actions {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	width: 150px;
+}
+
+.conflicts .actions .jg-btn {
+	justify-content: center;
+}
+
+.conflicts .footer {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.conflicts .footer .spacer {
+	flex: 1;
+}

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Changeline Webview Harness</title>
+<link rel="stylesheet" href="../dist/codicons/codicon.css">
+<link rel="stylesheet" href="theme.css">
+<script src="mocks.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script>
+	const params = new URLSearchParams(location.search);
+	const view = params.get('view') || 'log';
+	document.body.className = params.get('theme') === 'light' ? 'vscode-light' : 'vscode-dark';
+	document.documentElement.className = document.body.className;
+	document.documentElement.dataset.view = view;
+	const css = document.createElement('link');
+	css.rel = 'stylesheet';
+	css.href = `../dist/webview/${view}.css`;
+	document.head.appendChild(css);
+	window.__CHANGELINE_INITIAL__ = window.CHANGELINE_MOCK.initial(view);
+	const s = document.createElement('script');
+	s.src = `../dist/webview/${view}.js`;
+	document.body.appendChild(s);
+</script>
+</body>
+</html>

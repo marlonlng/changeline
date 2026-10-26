@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Git identity for test repositories
+        run: |
+          git config --global user.name "Changeline CI"
+          git config --global user.email "ci@example.com"
+          git config --global init.defaultBranch main
+      - name: Build
+        run: node esbuild.mjs
+      - name: Type check
+        run: npx tsc -p tsconfig.json && npx tsc -p webview-src/tsconfig.json
+      - name: Unit and integration tests
+        run: node --test "out/test/unit/*.test.js" "out/test/integration/*.test.js"
+      - name: End-to-end tests in VS Code (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node out/test/e2e/runTests.js
+      - name: End-to-end tests in VS Code (Windows, macOS)
+        if: runner.os != 'Linux'
+        run: node out/test/e2e/runTests.js
+      - name: Package
+        if: runner.os == 'Linux'
+        run: npx vsce package --no-dependencies --no-rewrite-relative-links --allow-missing-repository
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: changeline-vsix
+          path: '*.vsix'

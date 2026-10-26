@@ -1,0 +1,2809 @@
+{
+	"name": "changeline",
+	"displayName": "Changeline – Changelists, Shelf & Git Log",
+	"description": "Changelists, partial commits, shelf, Git log with graph, branches popup, three-way merge, interactive rebase and pull requests for VS Code: the Git workflow known from JetBrains IDEs. Not affiliated with JetBrains.",
+	"version": "0.1.0",
+	"publisher": "marlonlange",
+	"license": "MIT",
+	"icon": "media/icon.png",
+	"engines": {
+		"vscode": "^1.90.0"
+	},
+	"categories": [
+		"SCM Providers",
+		"Other"
+	],
+	"keywords": [
+		"git",
+		"jetbrains",
+		"phpstorm",
+		"intellij",
+		"changelist",
+		"shelf",
+		"git log",
+		"merge",
+		"rebase",
+		"blame"
+	],
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"main": "./dist/extension.js",
+	"l10n": "./l10n",
+	"contributes": {
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "changeline-commit",
+					"title": "%viewsContainer.changeline-commit%",
+					"icon": "media/commit.svg"
+				}
+			],
+			"panel": [
+				{
+					"id": "changeline-panel",
+					"title": "%viewsContainer.changeline-panel%",
+					"icon": "media/git.svg"
+				},
+				{
+					"id": "changeline-pullrequests",
+					"title": "%viewsContainer.changeline-pullrequests%",
+					"icon": "media/pull-request.svg"
+				}
+			]
+		},
+		"views": {
+			"changeline-commit": [
+				{
+					"id": "changeline.changes",
+					"name": "%view.changes%",
+					"icon": "media/commit.svg",
+					"contextualTitle": "%view.changes.contextualTitle%"
+				},
+				{
+					"type": "webview",
+					"id": "changeline.commitMessage",
+					"name": "%view.commitMessage%",
+					"contextualTitle": "%view.commitMessage.contextualTitle%",
+					"when": "changeline.hasRepository"
+				},
+				{
+					"id": "changeline.shelf",
+					"name": "%view.shelf%",
+					"visibility": "collapsed",
+					"contextualTitle": "%view.shelf.contextualTitle%"
+				},
+				{
+					"id": "changeline.stash",
+					"name": "%view.stash%",
+					"visibility": "collapsed",
+					"contextualTitle": "%view.stash.contextualTitle%",
+					"when": "changeline.hasRepository"
+				}
+			],
+			"changeline-panel": [
+				{
+					"type": "webview",
+					"id": "changeline.log",
+					"name": "%view.log%",
+					"contextualTitle": "%view.log.contextualTitle%"
+				}
+			],
+			"changeline-pullrequests": [
+				{
+					"type": "webview",
+					"id": "changeline.pullRequests",
+					"name": "%view.pullRequests%",
+					"contextualTitle": "%view.pullRequests.contextualTitle%",
+					"when": "changeline.hasRepository"
+				}
+			]
+		},
+		"viewsWelcome": [
+			{
+				"view": "changeline.changes",
+				"contents": "%viewsWelcome.changes.0%",
+				"when": "!changeline.hasRepository"
+			},
+			{
+				"view": "changeline.shelf",
+				"contents": "%viewsWelcome.shelf.1%"
+			},
+			{
+				"view": "changeline.stash",
+				"contents": "%viewsWelcome.stash.2%"
+			}
+		],
+		"commands": [
+			{
+				"command": "changeline.vcsOperations",
+				"title": "%command.vcsOperations%",
+				"category": "Changeline",
+				"icon": "$(source-control)"
+			},
+			{
+				"command": "changeline.branches",
+				"title": "%command.branches%",
+				"category": "Changeline",
+				"icon": "$(git-branch)"
+			},
+			{
+				"command": "changeline.commit",
+				"title": "%command.commit%",
+				"category": "Changeline",
+				"icon": "$(check)"
+			},
+			{
+				"command": "changeline.commitFile",
+				"title": "%command.commitFile%",
+				"category": "Changeline",
+				"icon": "$(check)"
+			},
+			{
+				"command": "changeline.push",
+				"title": "%command.push%",
+				"category": "Changeline",
+				"icon": "$(arrow-up)"
+			},
+			{
+				"command": "changeline.pull",
+				"title": "%command.pull%",
+				"category": "Changeline",
+				"icon": "$(arrow-down)"
+			},
+			{
+				"command": "changeline.fetch",
+				"title": "%command.fetch%",
+				"category": "Changeline",
+				"icon": "$(repo-fetch)"
+			},
+			{
+				"command": "changeline.updateProject",
+				"title": "%command.updateProject%",
+				"category": "Changeline",
+				"icon": "$(arrow-down)"
+			},
+			{
+				"command": "changeline.showLog",
+				"title": "%command.showLog%",
+				"category": "Changeline",
+				"icon": "$(history)"
+			},
+			{
+				"command": "changeline.showConsole",
+				"title": "%command.showConsole%",
+				"category": "Changeline",
+				"icon": "$(output)"
+			},
+			{
+				"command": "changeline.newBranch",
+				"title": "%command.newBranch%",
+				"category": "Changeline",
+				"icon": "$(add)"
+			},
+			{
+				"command": "changeline.checkoutRevision",
+				"title": "%command.checkoutRevision%",
+				"category": "Changeline",
+				"icon": "$(tag)"
+			},
+			{
+				"command": "changeline.newTag",
+				"title": "%command.newTag%",
+				"category": "Changeline",
+				"icon": "$(tag)"
+			},
+			{
+				"command": "changeline.merge",
+				"title": "%command.merge%",
+				"category": "Changeline",
+				"icon": "$(git-merge)"
+			},
+			{
+				"command": "changeline.rebase",
+				"title": "%command.rebase%",
+				"category": "Changeline",
+				"icon": "$(git-pull-request)"
+			},
+			{
+				"command": "changeline.interactiveRebase",
+				"title": "%command.interactiveRebase%",
+				"category": "Changeline"
+			},
+			{
+				"command": "changeline.resetHead",
+				"title": "%command.resetHead%",
+				"category": "Changeline",
+				"icon": "$(discard)"
+			},
+			{
+				"command": "changeline.renameBranch",
+				"title": "%command.renameBranch%",
+				"category": "Changeline"
+			},
+			{
+				"command": "changeline.deleteBranch",
+				"title": "%command.deleteBranch%",
+				"category": "Changeline"
+			},
+			{
+				"command": "changeline.stashChanges",
+				"title": "%command.stashChanges%",
+				"category": "Changeline",
+				"icon": "$(archive)"
+			},
+			{
+				"command": "changeline.unstashChanges",
+				"title": "%command.unstashChanges%",
+				"category": "Changeline",
+				"icon": "$(archive)"
+			},
+			{
+				"command": "changeline.shelveChanges",
+				"title": "%command.shelveChanges%",
+				"category": "Changeline",
+				"icon": "$(inbox)"
+			},
+			{
+				"command": "changeline.resolveConflicts",
+				"title": "%command.resolveConflicts%",
+				"category": "Changeline",
+				"icon": "$(warning)"
+			},
+			{
+				"command": "changeline.continueOperation",
+				"title": "%command.continueOperation%",
+				"category": "Changeline",
+				"icon": "$(debug-continue)"
+			},
+			{
+				"command": "changeline.abortOperation",
+				"title": "%command.abortOperation%",
+				"category": "Changeline",
+				"icon": "$(debug-stop)"
+			},
+			{
+				"command": "changeline.skipCommit",
+				"title": "%command.skipCommit%",
+				"category": "Changeline",
+				"icon": "$(debug-step-over)"
+			},
+			{
+				"command": "changeline.manageRemotes",
+				"title": "%command.manageRemotes%",
+				"category": "Changeline",
+				"icon": "$(cloud)"
+			},
+			{
+				"command": "changeline.worktrees",
+				"title": "%command.worktrees%",
+				"category": "Changeline",
+				"icon": "$(repo-forked)"
+			},
+			{
+				"command": "changeline.pullRequests.create",
+				"title": "%command.pullRequests.create%",
+				"category": "Changeline",
+				"icon": "$(git-pull-request-create)"
+			},
+			{
+				"command": "changeline.pullRequests.show",
+				"title": "%command.pullRequests.show%",
+				"category": "Changeline",
+				"icon": "$(git-pull-request)"
+			},
+			{
+				"command": "changeline.pullRequests.refresh",
+				"title": "%command.pullRequests.refresh%",
+				"category": "Changeline",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "changeline.hosting.signOut",
+				"title": "%command.hosting.signOut%",
+				"category": "Changeline"
+			},
+			{
+				"command": "changeline.github.share",
+				"title": "%command.github.share%",
+				"category": "Changeline",
+				"icon": "$(github)"
+			},
+			{
+				"command": "changeline.github.createGist",
+				"title": "%command.github.createGist%",
+				"category": "Changeline",
+				"icon": "$(github)"
+			},
+			{
+				"command": "changeline.github.syncFork",
+				"title": "%command.github.syncFork%",
+				"category": "Changeline",
+				"icon": "$(repo-forked)"
+			},
+			{
+				"command": "changeline.compareWithClipboard",
+				"title": "%command.compareWithClipboard%",
+				"category": "Changeline",
+				"icon": "$(clippy)"
+			},
+			{
+				"command": "changeline.showLogInNewTab",
+				"title": "%command.showLogInNewTab%",
+				"category": "Changeline",
+				"icon": "$(add)"
+			},
+			{
+				"command": "changeline.testGit",
+				"title": "%command.testGit%",
+				"category": "Changeline"
+			},
+			{
+				"command": "changeline.clone",
+				"title": "%command.clone%",
+				"category": "Changeline",
+				"icon": "$(repo-clone)"
+			},
+			{
+				"command": "changeline.init",
+				"title": "%command.init%",
+				"category": "Changeline",
+				"icon": "$(repo)"
+			},
+			{
+				"command": "changeline.applyPatch",
+				"title": "%command.applyPatch%",
+				"category": "Changeline",
+				"icon": "$(file-add)"
+			},
+			{
+				"command": "changeline.refresh",
+				"title": "%command.refresh%",
+				"category": "Changeline",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "changeline.annotate",
+				"title": "%command.annotate%",
+				"category": "Changeline",
+				"icon": "$(person)"
+			},
+			{
+				"command": "changeline.annotate.close",
+				"title": "%command.annotate.close%",
+				"category": "Changeline",
+				"icon": "$(close)"
+			},
+			{
+				"command": "changeline.showDiff",
+				"title": "%command.showDiff%",
+				"category": "Changeline",
+				"icon": "$(diff)"
+			},
+			{
+				"command": "changeline.compareWithRevision",
+				"title": "%command.compareWithRevision%",
+				"category": "Changeline",
+				"icon": "$(git-compare)"
+			},
+			{
+				"command": "changeline.compareWithBranch",
+				"title": "%command.compareWithBranch%",
+				"category": "Changeline",
+				"icon": "$(git-compare)"
+			},
+			{
+				"command": "changeline.showHistory",
+				"title": "%command.showHistory%",
+				"category": "Changeline",
+				"icon": "$(history)"
+			},
+			{
+				"command": "changeline.showHistoryForSelection",
+				"title": "%command.showHistoryForSelection%",
+				"category": "Changeline",
+				"icon": "$(history)"
+			},
+			{
+				"command": "changeline.showCurrentRevision",
+				"title": "%command.showCurrentRevision%",
+				"category": "Changeline"
+			},
+			{
+				"command": "changeline.rollbackFile",
+				"title": "%command.rollbackFile%",
+				"category": "Changeline",
+				"icon": "$(discard)"
+			},
+			{
+				"command": "changeline.addFile",
+				"title": "%command.addFile%",
+				"category": "Changeline",
+				"icon": "$(add)"
+			},
+			{
+				"command": "changeline.addToGitignore",
+				"title": "%command.addToGitignore%",
+				"category": "Changeline"
+			},
+			{
+				"command": "changeline.openInBrowser",
+				"title": "%command.openInBrowser%",
+				"category": "Changeline",
+				"icon": "$(link-external)"
+			},
+			{
+				"command": "changeline.commitMessageHistory",
+				"title": "%command.commitMessageHistory%",
+				"category": "Changeline",
+				"icon": "$(history)"
+			},
+			{
+				"command": "changeline.changes.open",
+				"title": "%command.changes.open%",
+				"category": "Changeline"
+			},
+			{
+				"command": "changeline.changes.showDiff",
+				"title": "%command.changes.showDiff%",
+				"category": "Changeline",
+				"icon": "$(diff)"
+			},
+			{
+				"command": "changeline.changes.showNativeDiff",
+				"title": "%command.changes.showNativeDiff%",
+				"category": "Changeline",
+				"icon": "$(split-horizontal)"
+			},
+			{
+				"command": "changeline.changes.openFile",
+				"title": "%command.changes.openFile%",
+				"category": "Changeline",
+				"icon": "$(go-to-file)"
+			},
+			{
+				"command": "changeline.changes.refresh",
+				"title": "%command.changes.refresh%",
+				"category": "Changeline",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "changeline.changes.rollback",
+				"title": "%command.changes.rollback%",
+				"category": "Changeline",
+				"icon": "$(discard)"
+			},
+			{
+				"command": "changeline.changes.moveToChangelist",
+				"title": "%command.changes.moveToChangelist%",
+				"category": "Changeline",
+				"icon": "$(move)"
+			},
+			{
+				"command": "changeline.changes.newChangelist",
+				"title": "%command.changes.newChangelist%",
+				"category": "Changeline",
+				"icon": "$(new-folder)"
+			},
+			{
+				"command": "changeline.changes.setActive",
+				"title": "%command.changes.setActive%",
+				"category": "Changeline",
+				"icon": "$(pass-filled)"
+			},
+			{
+				"command": "changeline.changes.editChangelist",
+				"title": "%command.changes.editChangelist%",
+				"category": "Changeline",
+				"icon": "$(edit)"
+			},
+			{
+				"command": "changeline.changes.deleteChangelist",
+				"title": "%command.changes.deleteChangelist%",
+				"category": "Changeline",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "changeline.changes.shelve",
+				"title": "%command.changes.shelve%",
+				"category": "Changeline",
+				"icon": "$(inbox)"
+			},
+			{
+				"command": "changeline.changes.shelveSilently",
+				"title": "%command.changes.shelveSilently%",
+				"category": "Changeline",
+				"icon": "$(inbox)"
+			},
+			{
+				"command": "changeline.changes.addToVcs",
+				"title": "%command.changes.addToVcs%",
+				"category": "Changeline",
+				"icon": "$(add)"
+			},
+			{
+				"command": "changeline.changes.ignore",
+				"title": "%command.changes.ignore%",
+				"category": "Changeline",
+				"icon": "$(eye-closed)"
+			},
+			{
+				"command": "changeline.changes.delete",
+				"title": "%command.changes.delete%",
+				"category": "Changeline",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "changeline.changes.stage",
+				"title": "%command.changes.stage%",
+				"category": "Changeline",
+				"icon": "$(add)"
+			},
+			{
+				"command": "changeline.changes.unstage",
+				"title": "%command.changes.unstage%",
+				"category": "Changeline",
+				"icon": "$(remove)"
+			},
+			{
+				"command": "changeline.changes.stageAll",
+				"title": "%command.changes.stageAll%",
+				"category": "Changeline",
+				"icon": "$(add)"
+			},
+			{
+				"command": "changeline.changes.unstageAll",
+				"title": "%command.changes.unstageAll%",
+				"category": "Changeline",
+				"icon": "$(remove)"
+			},
+			{
+				"command": "changeline.changes.includeAll",
+				"title": "%command.changes.includeAll%",
+				"category": "Changeline",
+				"icon": "$(check-all)"
+			},
+			{
+				"command": "changeline.changes.excludeAll",
+				"title": "%command.changes.excludeAll%",
+				"category": "Changeline",
+				"icon": "$(close-all)"
+			},
+			{
+				"command": "changeline.changes.commitSelected",
+				"title": "%command.changes.commitSelected%",
+				"category": "Changeline",
+				"icon": "$(check)"
+			},
+			{
+				"command": "changeline.changes.showHistory",
+				"title": "%command.changes.showHistory%",
+				"category": "Changeline",
+				"icon": "$(history)"
+			},
+			{
+				"command": "changeline.changes.createPatch",
+				"title": "%command.changes.createPatch%",
+				"category": "Changeline",
+				"icon": "$(file-diff)"
+			},
+			{
+				"command": "changeline.changes.groupByDirectory",
+				"title": "%command.changes.groupByDirectory%",
+				"category": "Changeline",
+				"icon": "$(list-tree)"
+			},
+			{
+				"command": "changeline.changes.groupByNone",
+				"title": "%command.changes.groupByNone%",
+				"category": "Changeline",
+				"icon": "$(list-flat)"
+			},
+			{
+				"command": "changeline.changes.expandAll",
+				"title": "%command.changes.expandAll%",
+				"category": "Changeline",
+				"icon": "$(expand-all)"
+			},
+			{
+				"command": "changeline.changes.toggleStagingArea",
+				"title": "%command.changes.toggleStagingArea%",
+				"category": "Changeline",
+				"icon": "$(layers)"
+			},
+			{
+				"command": "changeline.changes.toggleIgnored",
+				"title": "%command.changes.toggleIgnored%",
+				"category": "Changeline",
+				"icon": "$(eye)"
+			},
+			{
+				"command": "changeline.shelf.refresh",
+				"title": "%command.shelf.refresh%",
+				"category": "Changeline",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "changeline.shelf.unshelve",
+				"title": "%command.shelf.unshelve%",
+				"category": "Changeline",
+				"icon": "$(arrow-circle-up)"
+			},
+			{
+				"command": "changeline.shelf.unshelveSilently",
+				"title": "%command.shelf.unshelveSilently%",
+				"category": "Changeline",
+				"icon": "$(arrow-circle-up)"
+			},
+			{
+				"command": "changeline.shelf.delete",
+				"title": "%command.shelf.delete%",
+				"category": "Changeline",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "changeline.shelf.restore",
+				"title": "%command.shelf.restore%",
+				"category": "Changeline",
+				"icon": "$(history)"
+			},
+			{
+				"command": "changeline.shelf.rename",
+				"title": "%command.shelf.rename%",
+				"category": "Changeline",
+				"icon": "$(edit)"
+			},
+			{
+				"command": "changeline.shelf.emptyDeleted",
+				"title": "%command.shelf.emptyDeleted%",
+				"category": "Changeline",
+				"icon": "$(clear-all)"
+			},
+			{
+				"command": "changeline.shelf.createPatch",
+				"title": "%command.shelf.createPatch%",
+				"category": "Changeline",
+				"icon": "$(file-diff)"
+			},
+			{
+				"command": "changeline.shelf.importPatch",
+				"title": "%command.shelf.importPatch%",
+				"category": "Changeline",
+				"icon": "$(file-add)"
+			},
+			{
+				"command": "changeline.shelf.showDiff",
+				"title": "%command.shelf.showDiff%",
+				"category": "Changeline",
+				"icon": "$(diff)"
+			},
+			{
+				"command": "changeline.stash.refresh",
+				"title": "%command.stash.refresh%",
+				"category": "Changeline",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "changeline.stash.apply",
+				"title": "%command.stash.apply%",
+				"category": "Changeline",
+				"icon": "$(check)"
+			},
+			{
+				"command": "changeline.stash.pop",
+				"title": "%command.stash.pop%",
+				"category": "Changeline",
+				"icon": "$(arrow-circle-up)"
+			},
+			{
+				"command": "changeline.stash.applyIndex",
+				"title": "%command.stash.applyIndex%",
+				"category": "Changeline"
+			},
+			{
+				"command": "changeline.stash.drop",
+				"title": "%command.stash.drop%",
+				"category": "Changeline",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "changeline.stash.clear",
+				"title": "%command.stash.clear%",
+				"category": "Changeline",
+				"icon": "$(clear-all)"
+			},
+			{
+				"command": "changeline.stash.branch",
+				"title": "%command.stash.branch%",
+				"category": "Changeline",
+				"icon": "$(git-branch)"
+			},
+			{
+				"command": "changeline.stash.showDiff",
+				"title": "%command.stash.showDiff%",
+				"category": "Changeline",
+				"icon": "$(diff)"
+			},
+			{
+				"command": "changeline.log.copyRevision",
+				"title": "%command.log.copyRevision%",
+				"category": "Changeline Log",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "changeline.log.createPatch",
+				"title": "%command.log.createPatch%",
+				"category": "Changeline Log",
+				"icon": "$(file-diff)"
+			},
+			{
+				"command": "changeline.log.cherryPick",
+				"title": "%command.log.cherryPick%",
+				"category": "Changeline Log",
+				"icon": "$(git-pull-request-go-to-changes)"
+			},
+			{
+				"command": "changeline.log.checkoutRevision",
+				"title": "%command.log.checkoutRevision%",
+				"category": "Changeline Log",
+				"icon": "$(check)"
+			},
+			{
+				"command": "changeline.log.showRepositoryAtRevision",
+				"title": "%command.log.showRepositoryAtRevision%",
+				"category": "Changeline Log",
+				"icon": "$(repo)"
+			},
+			{
+				"command": "changeline.log.compareWithLocal",
+				"title": "%command.log.compareWithLocal%",
+				"category": "Changeline Log",
+				"icon": "$(git-compare)"
+			},
+			{
+				"command": "changeline.log.showDiff",
+				"title": "%command.log.showDiff%",
+				"category": "Changeline Log",
+				"icon": "$(diff)"
+			},
+			{
+				"command": "changeline.log.resetToHere",
+				"title": "%command.log.resetToHere%",
+				"category": "Changeline Log",
+				"icon": "$(discard)"
+			},
+			{
+				"command": "changeline.log.revertCommit",
+				"title": "%command.log.revertCommit%",
+				"category": "Changeline Log",
+				"icon": "$(reply)"
+			},
+			{
+				"command": "changeline.log.undoCommit",
+				"title": "%command.log.undoCommit%",
+				"category": "Changeline Log",
+				"icon": "$(debug-step-back)"
+			},
+			{
+				"command": "changeline.log.editMessage",
+				"title": "%command.log.editMessage%",
+				"category": "Changeline Log",
+				"icon": "$(edit)"
+			},
+			{
+				"command": "changeline.log.fixup",
+				"title": "%command.log.fixup%",
+				"category": "Changeline Log",
+				"icon": "$(fold)"
+			},
+			{
+				"command": "changeline.log.squashInto",
+				"title": "%command.log.squashInto%",
+				"category": "Changeline Log",
+				"icon": "$(fold-down)"
+			},
+			{
+				"command": "changeline.log.squashCommits",
+				"title": "%command.log.squashCommits%",
+				"category": "Changeline Log",
+				"icon": "$(fold-down)"
+			},
+			{
+				"command": "changeline.log.dropCommits",
+				"title": "%command.log.dropCommits%",
+				"category": "Changeline Log",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "changeline.log.interactiveRebase",
+				"title": "%command.log.interactiveRebase%",
+				"category": "Changeline Log",
+				"icon": "$(git-pull-request)"
+			},
+			{
+				"command": "changeline.log.pushUpToHere",
+				"title": "%command.log.pushUpToHere%",
+				"category": "Changeline Log",
+				"icon": "$(arrow-up)"
+			},
+			{
+				"command": "changeline.log.newBranch",
+				"title": "%command.log.newBranch%",
+				"category": "Changeline Log",
+				"icon": "$(git-branch)"
+			},
+			{
+				"command": "changeline.log.newTag",
+				"title": "%command.log.newTag%",
+				"category": "Changeline Log",
+				"icon": "$(tag)"
+			},
+			{
+				"command": "changeline.log.goToParent",
+				"title": "%command.log.goToParent%",
+				"category": "Changeline Log",
+				"icon": "$(arrow-down)"
+			},
+			{
+				"command": "changeline.log.goToChild",
+				"title": "%command.log.goToChild%",
+				"category": "Changeline Log",
+				"icon": "$(arrow-up)"
+			},
+			{
+				"command": "changeline.log.goTo",
+				"title": "%command.log.goTo%",
+				"category": "Changeline Log",
+				"icon": "$(search)"
+			},
+			{
+				"command": "changeline.log.openInBrowser",
+				"title": "%command.log.openInBrowser%",
+				"category": "Changeline Log",
+				"icon": "$(link-external)"
+			},
+			{
+				"command": "changeline.log.refresh",
+				"title": "%command.log.refresh%",
+				"category": "Changeline Log",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "changeline.logFile.showDiff",
+				"title": "%command.logFile.showDiff%",
+				"category": "Changeline Log",
+				"icon": "$(diff)"
+			},
+			{
+				"command": "changeline.logFile.compareWithLocal",
+				"title": "%command.logFile.compareWithLocal%",
+				"category": "Changeline Log",
+				"icon": "$(git-compare)"
+			},
+			{
+				"command": "changeline.logFile.openRepositoryVersion",
+				"title": "%command.logFile.openRepositoryVersion%",
+				"category": "Changeline Log",
+				"icon": "$(file)"
+			},
+			{
+				"command": "changeline.logFile.editSource",
+				"title": "%command.logFile.editSource%",
+				"category": "Changeline Log",
+				"icon": "$(go-to-file)"
+			},
+			{
+				"command": "changeline.logFile.revertSelectedChanges",
+				"title": "%command.logFile.revertSelectedChanges%",
+				"category": "Changeline Log",
+				"icon": "$(discard)"
+			},
+			{
+				"command": "changeline.logFile.cherryPickSelectedChanges",
+				"title": "%command.logFile.cherryPickSelectedChanges%",
+				"category": "Changeline Log",
+				"icon": "$(git-pull-request-go-to-changes)"
+			},
+			{
+				"command": "changeline.logFile.historyUpToHere",
+				"title": "%command.logFile.historyUpToHere%",
+				"category": "Changeline Log",
+				"icon": "$(history)"
+			},
+			{
+				"command": "changeline.logFile.getRevision",
+				"title": "%command.logFile.getRevision%",
+				"category": "Changeline Log",
+				"icon": "$(cloud-download)"
+			},
+			{
+				"command": "changeline.logFile.annotate",
+				"title": "%command.logFile.annotate%",
+				"category": "Changeline Log",
+				"icon": "$(person)"
+			},
+			{
+				"command": "changeline.logFile.openInBrowser",
+				"title": "%command.logFile.openInBrowser%",
+				"category": "Changeline Log",
+				"icon": "$(link-external)"
+			},
+			{
+				"command": "changeline.logBranch.checkout",
+				"title": "%command.logBranch.checkout%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.logBranch.newFrom",
+				"title": "%command.logBranch.newFrom%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.logBranch.checkoutRebase",
+				"title": "%command.logBranch.checkoutRebase%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.logBranch.compare",
+				"title": "%command.logBranch.compare%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.logBranch.diffWorking",
+				"title": "%command.logBranch.diffWorking%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.logBranch.rebaseOnto",
+				"title": "%command.logBranch.rebaseOnto%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.logBranch.merge",
+				"title": "%command.logBranch.merge%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.logBranch.pullRebase",
+				"title": "%command.logBranch.pullRebase%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.logBranch.pullMerge",
+				"title": "%command.logBranch.pullMerge%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.logBranch.update",
+				"title": "%command.logBranch.update%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.logBranch.push",
+				"title": "%command.logBranch.push%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.logBranch.rename",
+				"title": "%command.logBranch.rename%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.logBranch.tracking",
+				"title": "%command.logBranch.tracking%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.logBranch.pushTag",
+				"title": "%command.logBranch.pushTag%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.logBranch.favorite",
+				"title": "%command.logBranch.favorite%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.logBranch.newLogTab",
+				"title": "%command.logBranch.newLogTab%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.logBranch.delete",
+				"title": "%command.logBranch.delete%",
+				"category": "Changeline Branch"
+			},
+			{
+				"command": "changeline.copyText",
+				"title": "%command.copyText%",
+				"category": "Changeline"
+			},
+			{
+				"command": "changeline.openRevisionFile",
+				"title": "%command.openRevisionFile%",
+				"category": "Changeline"
+			},
+			{
+				"command": "changeline.annotate.showDiff",
+				"title": "%command.annotate.showDiff%",
+				"category": "Changeline"
+			},
+			{
+				"command": "changeline.annotate.previous",
+				"title": "%command.annotate.previous%",
+				"category": "Changeline"
+			}
+		],
+		"menus": {
+			"commandPalette": [
+				{
+					"command": "changeline.changes.open",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.showDiff",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.showNativeDiff",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.openFile",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.moveToChangelist",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.setActive",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.editChangelist",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.deleteChangelist",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.shelve",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.shelveSilently",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.addToVcs",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.ignore",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.delete",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.stage",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.unstage",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.stageAll",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.unstageAll",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.commitSelected",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.showHistory",
+					"when": "false"
+				},
+				{
+					"command": "changeline.changes.expandAll",
+					"when": "false"
+				},
+				{
+					"command": "changeline.shelf.refresh",
+					"when": "false"
+				},
+				{
+					"command": "changeline.shelf.unshelve",
+					"when": "false"
+				},
+				{
+					"command": "changeline.shelf.unshelveSilently",
+					"when": "false"
+				},
+				{
+					"command": "changeline.shelf.delete",
+					"when": "false"
+				},
+				{
+					"command": "changeline.shelf.restore",
+					"when": "false"
+				},
+				{
+					"command": "changeline.shelf.rename",
+					"when": "false"
+				},
+				{
+					"command": "changeline.shelf.emptyDeleted",
+					"when": "false"
+				},
+				{
+					"command": "changeline.shelf.createPatch",
+					"when": "false"
+				},
+				{
+					"command": "changeline.shelf.showDiff",
+					"when": "false"
+				},
+				{
+					"command": "changeline.stash.refresh",
+					"when": "false"
+				},
+				{
+					"command": "changeline.stash.apply",
+					"when": "false"
+				},
+				{
+					"command": "changeline.stash.pop",
+					"when": "false"
+				},
+				{
+					"command": "changeline.stash.applyIndex",
+					"when": "false"
+				},
+				{
+					"command": "changeline.stash.drop",
+					"when": "false"
+				},
+				{
+					"command": "changeline.stash.branch",
+					"when": "false"
+				},
+				{
+					"command": "changeline.stash.showDiff",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.copyRevision",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.createPatch",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.cherryPick",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.checkoutRevision",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.showRepositoryAtRevision",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.compareWithLocal",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.showDiff",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.resetToHere",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.revertCommit",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.undoCommit",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.editMessage",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.fixup",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.squashInto",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.squashCommits",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.dropCommits",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.interactiveRebase",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.pushUpToHere",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.newBranch",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.newTag",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.goToParent",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.goToChild",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.goTo",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.openInBrowser",
+					"when": "false"
+				},
+				{
+					"command": "changeline.log.refresh",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logFile.showDiff",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logFile.compareWithLocal",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logFile.openRepositoryVersion",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logFile.editSource",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logFile.revertSelectedChanges",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logFile.cherryPickSelectedChanges",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logFile.historyUpToHere",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logFile.getRevision",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logFile.annotate",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logFile.openInBrowser",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.checkout",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.newFrom",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.checkoutRebase",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.compare",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.diffWorking",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.rebaseOnto",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.merge",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.pullRebase",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.pullMerge",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.update",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.push",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.rename",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.tracking",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.pushTag",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.favorite",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.newLogTab",
+					"when": "false"
+				},
+				{
+					"command": "changeline.logBranch.delete",
+					"when": "false"
+				},
+				{
+					"command": "changeline.copyText",
+					"when": "false"
+				},
+				{
+					"command": "changeline.openRevisionFile",
+					"when": "false"
+				},
+				{
+					"command": "changeline.annotate.showDiff",
+					"when": "false"
+				},
+				{
+					"command": "changeline.annotate.previous",
+					"when": "false"
+				},
+				{
+					"command": "changeline.continueOperation",
+					"when": "changeline.hasRepository"
+				},
+				{
+					"command": "changeline.abortOperation",
+					"when": "changeline.hasRepository"
+				},
+				{
+					"command": "changeline.skipCommit",
+					"when": "changeline.hasRepository"
+				},
+				{
+					"command": "changeline.annotate.close",
+					"when": "changeline.annotateActive"
+				}
+			],
+			"view/title": [
+				{
+					"command": "changeline.changes.refresh",
+					"when": "view == changeline.changes",
+					"group": "navigation@1"
+				},
+				{
+					"command": "changeline.changes.rollback",
+					"when": "view == changeline.changes",
+					"group": "navigation@2"
+				},
+				{
+					"command": "changeline.changes.showDiff",
+					"when": "view == changeline.changes",
+					"group": "navigation@3"
+				},
+				{
+					"command": "changeline.changes.stageAll",
+					"when": "view == changeline.changes && changeline.stagingArea",
+					"group": "navigation@4"
+				},
+				{
+					"command": "changeline.changes.unstageAll",
+					"when": "view == changeline.changes && changeline.stagingArea",
+					"group": "navigation@5"
+				},
+				{
+					"command": "changeline.changes.shelve",
+					"when": "view == changeline.changes",
+					"group": "navigation@6"
+				},
+				{
+					"submenu": "changeline.changes.groupBy",
+					"when": "view == changeline.changes",
+					"group": "navigation@7"
+				},
+				{
+					"command": "changeline.changes.expandAll",
+					"when": "view == changeline.changes",
+					"group": "navigation@8"
+				},
+				{
+					"command": "changeline.changes.newChangelist",
+					"when": "view == changeline.changes && !changeline.stagingArea",
+					"group": "1_changelists@1"
+				},
+				{
+					"command": "changeline.changes.includeAll",
+					"when": "view == changeline.changes && !changeline.stagingArea",
+					"group": "1_changelists@2"
+				},
+				{
+					"command": "changeline.changes.excludeAll",
+					"when": "view == changeline.changes && !changeline.stagingArea",
+					"group": "1_changelists@3"
+				},
+				{
+					"command": "changeline.changes.toggleStagingArea",
+					"when": "view == changeline.changes",
+					"group": "2_mode@1"
+				},
+				{
+					"command": "changeline.changes.toggleIgnored",
+					"when": "view == changeline.changes",
+					"group": "2_mode@2"
+				},
+				{
+					"command": "changeline.changes.createPatch",
+					"when": "view == changeline.changes",
+					"group": "3_patch@1"
+				},
+				{
+					"command": "changeline.applyPatch",
+					"when": "view == changeline.changes",
+					"group": "3_patch@2"
+				},
+				{
+					"command": "changeline.resolveConflicts",
+					"when": "view == changeline.changes && changeline.hasConflicts",
+					"group": "navigation@0"
+				},
+				{
+					"command": "changeline.shelf.importPatch",
+					"when": "view == changeline.shelf",
+					"group": "navigation@1"
+				},
+				{
+					"command": "changeline.shelf.refresh",
+					"when": "view == changeline.shelf",
+					"group": "navigation@2"
+				},
+				{
+					"command": "changeline.shelf.emptyDeleted",
+					"when": "view == changeline.shelf",
+					"group": "1_more"
+				},
+				{
+					"command": "changeline.stashChanges",
+					"when": "view == changeline.stash",
+					"group": "navigation@1"
+				},
+				{
+					"command": "changeline.unstashChanges",
+					"when": "view == changeline.stash",
+					"group": "navigation@2"
+				},
+				{
+					"command": "changeline.stash.refresh",
+					"when": "view == changeline.stash",
+					"group": "navigation@3"
+				},
+				{
+					"command": "changeline.stash.clear",
+					"when": "view == changeline.stash",
+					"group": "1_more"
+				},
+				{
+					"command": "changeline.updateProject",
+					"when": "view == changeline.log",
+					"group": "navigation@1"
+				},
+				{
+					"command": "changeline.push",
+					"when": "view == changeline.log",
+					"group": "navigation@2"
+				},
+				{
+					"command": "changeline.fetch",
+					"when": "view == changeline.log",
+					"group": "navigation@3"
+				},
+				{
+					"command": "changeline.branches",
+					"when": "view == changeline.log",
+					"group": "navigation@4"
+				},
+				{
+					"command": "changeline.showConsole",
+					"when": "view == changeline.log",
+					"group": "navigation@5"
+				},
+				{
+					"command": "changeline.showLogInNewTab",
+					"when": "view == changeline.log",
+					"group": "navigation@0"
+				},
+				{
+					"command": "changeline.pullRequests.create",
+					"when": "view == changeline.pullRequests",
+					"group": "navigation@1"
+				},
+				{
+					"command": "changeline.pullRequests.refresh",
+					"when": "view == changeline.pullRequests",
+					"group": "navigation@2"
+				},
+				{
+					"command": "changeline.hosting.signOut",
+					"when": "view == changeline.pullRequests",
+					"group": "1_more"
+				}
+			],
+			"changeline.changes.groupBy": [
+				{
+					"command": "changeline.changes.groupByDirectory",
+					"group": "1@1"
+				},
+				{
+					"command": "changeline.changes.groupByNone",
+					"group": "1@2"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "changeline.changes.stage",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:file/ && viewItem =~ /group=(unstaged|unversioned)/ && changeline.stagingArea",
+					"group": "inline@1"
+				},
+				{
+					"command": "changeline.changes.unstage",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:file/ && viewItem =~ /group=staged/",
+					"group": "inline@1"
+				},
+				{
+					"command": "changeline.changes.addToVcs",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:file/ && viewItem =~ /group=unversioned/ && !changeline.stagingArea",
+					"group": "inline@1"
+				},
+				{
+					"command": "changeline.changes.openFile",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:file/ && viewItem =~ /status=[^D]/",
+					"group": "inline@2"
+				},
+				{
+					"command": "changeline.changes.rollback",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:file/ && viewItem =~ /group=(changelist|staged|unstaged|conflicts)/",
+					"group": "inline@3"
+				},
+				{
+					"command": "changeline.changes.commitSelected",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:(file|dir|changelist)/",
+					"group": "1_commit@1"
+				},
+				{
+					"command": "changeline.changes.rollback",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:(file|dir|changelist)/ && viewItem =~ /group=(changelist|staged|unstaged)|^changeline:changelist/",
+					"group": "1_commit@2"
+				},
+				{
+					"command": "changeline.changes.moveToChangelist",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:(file|dir)/ && viewItem =~ /group=changelist/",
+					"group": "1_commit@3"
+				},
+				{
+					"command": "changeline.changes.stage",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:(file|dir|group)/ && viewItem =~ /group=(unstaged|unversioned)/",
+					"group": "1_commit@4"
+				},
+				{
+					"command": "changeline.changes.unstage",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:(file|dir|group)/ && viewItem =~ /group=staged/",
+					"group": "1_commit@5"
+				},
+				{
+					"command": "changeline.changes.showDiff",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:file/",
+					"group": "2_view@1"
+				},
+				{
+					"command": "changeline.changes.showNativeDiff",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:file/",
+					"group": "2_view@2"
+				},
+				{
+					"command": "changeline.changes.openFile",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:file/",
+					"group": "2_view@3"
+				},
+				{
+					"command": "changeline.changes.showHistory",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:file/ && viewItem =~ /group=(changelist|staged|unstaged)/",
+					"group": "2_view@4"
+				},
+				{
+					"command": "changeline.changes.shelve",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:(file|dir|changelist)/",
+					"group": "3_shelve@1"
+				},
+				{
+					"command": "changeline.changes.shelveSilently",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:(file|dir|changelist)/",
+					"group": "3_shelve@1b"
+				},
+				{
+					"command": "changeline.changes.createPatch",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:(file|dir|changelist)/",
+					"group": "3_shelve@2"
+				},
+				{
+					"command": "changeline.changes.addToVcs",
+					"when": "view == changeline.changes && viewItem =~ /group=(unversioned|ignored)/",
+					"group": "4_vcs@1"
+				},
+				{
+					"command": "changeline.changes.ignore",
+					"when": "view == changeline.changes && viewItem =~ /group=unversioned/",
+					"group": "4_vcs@2"
+				},
+				{
+					"command": "changeline.changes.delete",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:file/ && viewItem =~ /status=[^D]/",
+					"group": "4_vcs@3"
+				},
+				{
+					"command": "changeline.changes.setActive",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:changelist/ && viewItem =~ /removable/ && !(viewItem =~ /;active/)",
+					"group": "5_cl@1"
+				},
+				{
+					"command": "changeline.changes.newChangelist",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:changelist/",
+					"group": "5_cl@2"
+				},
+				{
+					"command": "changeline.changes.editChangelist",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:changelist/",
+					"group": "5_cl@3"
+				},
+				{
+					"command": "changeline.changes.deleteChangelist",
+					"when": "view == changeline.changes && viewItem =~ /^changeline:changelist/ && viewItem =~ /removable/",
+					"group": "5_cl@4"
+				},
+				{
+					"command": "changeline.resolveConflicts",
+					"when": "view == changeline.changes && viewItem =~ /group=conflicts/",
+					"group": "1_commit@0"
+				},
+				{
+					"command": "changeline.shelf.unshelve",
+					"when": "view == changeline.shelf && viewItem =~ /^changeline:shelf(List|File)$/",
+					"group": "inline@1"
+				},
+				{
+					"command": "changeline.shelf.restore",
+					"when": "view == changeline.shelf && viewItem == 'changeline:shelfList;deleted'",
+					"group": "inline@1"
+				},
+				{
+					"command": "changeline.shelf.unshelve",
+					"when": "view == changeline.shelf && viewItem =~ /^changeline:shelf(List|File)$/",
+					"group": "1_unshelve@1"
+				},
+				{
+					"command": "changeline.shelf.unshelveSilently",
+					"when": "view == changeline.shelf && viewItem =~ /^changeline:shelf(List|File)$/",
+					"group": "1_unshelve@2"
+				},
+				{
+					"command": "changeline.shelf.showDiff",
+					"when": "view == changeline.shelf && viewItem =~ /^changeline:shelfFile/",
+					"group": "2_view@1"
+				},
+				{
+					"command": "changeline.shelf.createPatch",
+					"when": "view == changeline.shelf && viewItem =~ /^changeline:shelfList/",
+					"group": "2_view@2"
+				},
+				{
+					"command": "changeline.shelf.rename",
+					"when": "view == changeline.shelf && viewItem =~ /^changeline:shelfList/",
+					"group": "3_edit@1"
+				},
+				{
+					"command": "changeline.shelf.restore",
+					"when": "view == changeline.shelf && viewItem == 'changeline:shelfList;deleted'",
+					"group": "3_edit@2"
+				},
+				{
+					"command": "changeline.shelf.delete",
+					"when": "view == changeline.shelf && viewItem =~ /^changeline:shelf(List|File)/",
+					"group": "3_edit@3"
+				},
+				{
+					"command": "changeline.shelf.emptyDeleted",
+					"when": "view == changeline.shelf && viewItem == 'changeline:shelfDeleted'",
+					"group": "3_edit@1"
+				},
+				{
+					"command": "changeline.stash.pop",
+					"when": "view == changeline.stash && viewItem == 'changeline:stash'",
+					"group": "inline@1"
+				},
+				{
+					"command": "changeline.stash.apply",
+					"when": "view == changeline.stash && viewItem == 'changeline:stash'",
+					"group": "1_apply@1"
+				},
+				{
+					"command": "changeline.stash.pop",
+					"when": "view == changeline.stash && viewItem == 'changeline:stash'",
+					"group": "1_apply@2"
+				},
+				{
+					"command": "changeline.stash.applyIndex",
+					"when": "view == changeline.stash && viewItem == 'changeline:stash'",
+					"group": "1_apply@3"
+				},
+				{
+					"command": "changeline.stash.branch",
+					"when": "view == changeline.stash && viewItem == 'changeline:stash'",
+					"group": "1_apply@4"
+				},
+				{
+					"command": "changeline.stash.drop",
+					"when": "view == changeline.stash && viewItem == 'changeline:stash'",
+					"group": "2_drop@1"
+				},
+				{
+					"command": "changeline.stash.clear",
+					"when": "view == changeline.stash && viewItem =~ /^changeline:stash(Repo)?$/",
+					"group": "2_drop@2"
+				},
+				{
+					"command": "changeline.stash.showDiff",
+					"when": "view == changeline.stash && viewItem == 'changeline:stashFile'",
+					"group": "1_apply@1"
+				}
+			],
+			"webview/context": [
+				{
+					"command": "changeline.log.copyRevision",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit'",
+					"group": "1_copy@1"
+				},
+				{
+					"command": "changeline.log.createPatch",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit'",
+					"group": "1_copy@2"
+				},
+				{
+					"command": "changeline.log.cherryPick",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && !inHead",
+					"group": "1_copy@3"
+				},
+				{
+					"command": "changeline.log.checkoutRevision",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && !multiple",
+					"group": "2_view@1"
+				},
+				{
+					"command": "changeline.log.showRepositoryAtRevision",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && !multiple",
+					"group": "2_view@2"
+				},
+				{
+					"command": "changeline.log.compareWithLocal",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && !multiple",
+					"group": "2_view@3"
+				},
+				{
+					"command": "changeline.log.showDiff",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && !multiple",
+					"group": "2_view@4"
+				},
+				{
+					"command": "changeline.log.resetToHere",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && !multiple",
+					"group": "3_reset@1"
+				},
+				{
+					"command": "changeline.log.revertCommit",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit'",
+					"group": "3_reset@2"
+				},
+				{
+					"command": "changeline.log.undoCommit",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && isHead && !multiple",
+					"group": "3_reset@3"
+				},
+				{
+					"command": "changeline.log.editMessage",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && inHead && !multiple",
+					"group": "4_rewrite@1"
+				},
+				{
+					"command": "changeline.log.fixup",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && inHead && !multiple",
+					"group": "4_rewrite@2"
+				},
+				{
+					"command": "changeline.log.squashInto",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && inHead && !multiple",
+					"group": "4_rewrite@3"
+				},
+				{
+					"command": "changeline.log.squashCommits",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && inHead && multiple",
+					"group": "4_rewrite@4"
+				},
+				{
+					"command": "changeline.log.dropCommits",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && inHead",
+					"group": "4_rewrite@5"
+				},
+				{
+					"command": "changeline.log.interactiveRebase",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && inHead && !multiple",
+					"group": "4_rewrite@6"
+				},
+				{
+					"command": "changeline.log.pushUpToHere",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && inHead && !multiple",
+					"group": "5_push@1"
+				},
+				{
+					"command": "changeline.log.newBranch",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && !multiple",
+					"group": "6_refs@1"
+				},
+				{
+					"command": "changeline.log.newTag",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && !multiple",
+					"group": "6_refs@2"
+				},
+				{
+					"command": "changeline.log.goToParent",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && !multiple && !isRoot",
+					"group": "7_nav@1"
+				},
+				{
+					"command": "changeline.log.goToChild",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && !multiple",
+					"group": "7_nav@2"
+				},
+				{
+					"command": "changeline.log.openInBrowser",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'commit' && !multiple",
+					"group": "8_web@1"
+				},
+				{
+					"command": "changeline.logFile.showDiff",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'logFile'",
+					"group": "1_diff@1"
+				},
+				{
+					"command": "changeline.logFile.compareWithLocal",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'logFile' && status != 'D'",
+					"group": "1_diff@2"
+				},
+				{
+					"command": "changeline.logFile.editSource",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'logFile' && status != 'D'",
+					"group": "2_open@1"
+				},
+				{
+					"command": "changeline.logFile.openRepositoryVersion",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'logFile'",
+					"group": "2_open@2"
+				},
+				{
+					"command": "changeline.logFile.annotate",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'logFile' && status != 'D' && !multiple",
+					"group": "2_open@3"
+				},
+				{
+					"command": "changeline.logFile.revertSelectedChanges",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'logFile'",
+					"group": "3_apply@1"
+				},
+				{
+					"command": "changeline.logFile.cherryPickSelectedChanges",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'logFile'",
+					"group": "3_apply@2"
+				},
+				{
+					"command": "changeline.logFile.historyUpToHere",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'logFile' && !multiple",
+					"group": "4_history@1"
+				},
+				{
+					"command": "changeline.logFile.getRevision",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'logFile' && status != 'D' && !multiple",
+					"group": "3_apply@0"
+				},
+				{
+					"command": "changeline.logFile.openInBrowser",
+					"when": "(webviewId == 'changeline.log' || webviewId == 'changeline.history') && webviewSection == 'logFile' && status != 'D' && !multiple",
+					"group": "5_web@1"
+				},
+				{
+					"command": "changeline.logBranch.checkout",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch' && !isCurrent",
+					"group": "1_checkout@1"
+				},
+				{
+					"command": "changeline.logBranch.newFrom",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch'",
+					"group": "1_checkout@2"
+				},
+				{
+					"command": "changeline.logBranch.checkoutRebase",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch' && !isCurrent && !isTag",
+					"group": "1_checkout@3"
+				},
+				{
+					"command": "changeline.logBranch.compare",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch' && !isCurrent",
+					"group": "2_compare@1"
+				},
+				{
+					"command": "changeline.logBranch.diffWorking",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch' && !isCurrent",
+					"group": "2_compare@2"
+				},
+				{
+					"command": "changeline.logBranch.rebaseOnto",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch' && !isCurrent",
+					"group": "3_merge@1"
+				},
+				{
+					"command": "changeline.logBranch.merge",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch' && !isCurrent",
+					"group": "3_merge@2"
+				},
+				{
+					"command": "changeline.logBranch.pullRebase",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch' && isRemote",
+					"group": "3_merge@3"
+				},
+				{
+					"command": "changeline.logBranch.pullMerge",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch' && isRemote",
+					"group": "3_merge@4"
+				},
+				{
+					"command": "changeline.logBranch.update",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch' && (isLocal && hasUpstream || ref == 'HEAD')",
+					"group": "4_remote@1"
+				},
+				{
+					"command": "changeline.logBranch.push",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch' && (isLocal || ref == 'HEAD')",
+					"group": "4_remote@2"
+				},
+				{
+					"command": "changeline.logBranch.pushTag",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch' && isTag",
+					"group": "4_remote@3"
+				},
+				{
+					"command": "changeline.logBranch.rename",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch' && isLocal",
+					"group": "5_edit@1"
+				},
+				{
+					"command": "changeline.logBranch.tracking",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch' && isLocal",
+					"group": "5_edit@2"
+				},
+				{
+					"command": "changeline.logBranch.favorite",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch' && (isLocal || isRemote)",
+					"group": "5_edit@3"
+				},
+				{
+					"command": "changeline.logBranch.newLogTab",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch' && ref != 'HEAD'",
+					"group": "2_compare@3"
+				},
+				{
+					"command": "changeline.logBranch.delete",
+					"when": "webviewId == 'changeline.log' && webviewSection == 'branch' && !isCurrent",
+					"group": "6_delete@1"
+				}
+			],
+			"changeline.editorGit": [
+				{
+					"command": "changeline.commitFile",
+					"group": "1_commit@1"
+				},
+				{
+					"command": "changeline.addFile",
+					"group": "1_commit@2"
+				},
+				{
+					"command": "changeline.annotate",
+					"group": "2_view@1"
+				},
+				{
+					"command": "changeline.showDiff",
+					"group": "2_view@2"
+				},
+				{
+					"command": "changeline.compareWithRevision",
+					"group": "2_view@3"
+				},
+				{
+					"command": "changeline.compareWithBranch",
+					"group": "2_view@4"
+				},
+				{
+					"command": "changeline.compareWithClipboard",
+					"group": "2_view@5"
+				},
+				{
+					"command": "changeline.showHistory",
+					"group": "3_history@1"
+				},
+				{
+					"command": "changeline.showHistoryForSelection",
+					"group": "3_history@2",
+					"when": "editorHasSelection"
+				},
+				{
+					"command": "changeline.showCurrentRevision",
+					"group": "3_history@3"
+				},
+				{
+					"command": "changeline.rollbackFile",
+					"group": "4_rollback@1"
+				},
+				{
+					"command": "changeline.addToGitignore",
+					"group": "4_rollback@2"
+				},
+				{
+					"command": "changeline.openInBrowser",
+					"group": "5_web@1"
+				},
+				{
+					"command": "changeline.github.createGist",
+					"group": "5_web@2"
+				},
+				{
+					"command": "changeline.pullRequests.create",
+					"group": "5_web@3"
+				},
+				{
+					"command": "changeline.branches",
+					"group": "6_repo@1"
+				},
+				{
+					"command": "changeline.push",
+					"group": "6_repo@2"
+				},
+				{
+					"command": "changeline.updateProject",
+					"group": "6_repo@3"
+				},
+				{
+					"command": "changeline.stashChanges",
+					"group": "7_stash@1"
+				},
+				{
+					"command": "changeline.unstashChanges",
+					"group": "7_stash@2"
+				}
+			],
+			"changeline.explorerGit": [
+				{
+					"command": "changeline.commitFile",
+					"group": "1_commit@1"
+				},
+				{
+					"command": "changeline.addFile",
+					"group": "1_commit@2"
+				},
+				{
+					"command": "changeline.annotate",
+					"group": "2_view@1"
+				},
+				{
+					"command": "changeline.showDiff",
+					"group": "2_view@2"
+				},
+				{
+					"command": "changeline.compareWithRevision",
+					"group": "2_view@3"
+				},
+				{
+					"command": "changeline.compareWithBranch",
+					"group": "2_view@4"
+				},
+				{
+					"command": "changeline.compareWithClipboard",
+					"group": "2_view@5"
+				},
+				{
+					"command": "changeline.showHistory",
+					"group": "3_history@1"
+				},
+				{
+					"command": "changeline.showCurrentRevision",
+					"group": "3_history@3"
+				},
+				{
+					"command": "changeline.rollbackFile",
+					"group": "4_rollback@1"
+				},
+				{
+					"command": "changeline.addToGitignore",
+					"group": "4_rollback@2"
+				},
+				{
+					"command": "changeline.openInBrowser",
+					"group": "5_web@1"
+				},
+				{
+					"command": "changeline.github.createGist",
+					"group": "5_web@2"
+				},
+				{
+					"command": "changeline.pullRequests.create",
+					"group": "5_web@3"
+				},
+				{
+					"command": "changeline.branches",
+					"group": "6_repo@1"
+				},
+				{
+					"command": "changeline.push",
+					"group": "6_repo@2"
+				},
+				{
+					"command": "changeline.updateProject",
+					"group": "6_repo@3"
+				},
+				{
+					"command": "changeline.stashChanges",
+					"group": "7_stash@1"
+				},
+				{
+					"command": "changeline.unstashChanges",
+					"group": "7_stash@2"
+				}
+			],
+			"editor/context": [
+				{
+					"submenu": "changeline.editorGit",
+					"when": "changeline.hasRepository && resourceScheme == file",
+					"group": "z_changeline@1"
+				}
+			],
+			"explorer/context": [
+				{
+					"submenu": "changeline.explorerGit",
+					"when": "changeline.hasRepository",
+					"group": "7_modification@9"
+				}
+			],
+			"editor/title/context": [
+				{
+					"submenu": "changeline.editorGit",
+					"when": "changeline.hasRepository && resourceScheme == file",
+					"group": "z_changeline@1"
+				}
+			],
+			"editor/lineNumber/context": [
+				{
+					"command": "changeline.annotate",
+					"when": "changeline.hasRepository && !changeline.annotateActive",
+					"group": "navigation"
+				},
+				{
+					"command": "changeline.annotate.close",
+					"when": "changeline.annotateActive",
+					"group": "navigation"
+				}
+			],
+			"editor/title": [
+				{
+					"command": "changeline.annotate.close",
+					"when": "changeline.annotateActive",
+					"group": "navigation@99"
+				}
+			]
+		},
+		"submenus": [
+			{
+				"id": "changeline.editorGit",
+				"label": "%submenu.editorGit%"
+			},
+			{
+				"id": "changeline.explorerGit",
+				"label": "%submenu.explorerGit%"
+			},
+			{
+				"id": "changeline.changes.groupBy",
+				"label": "%submenu.changes.groupBy%",
+				"icon": "$(list-tree)"
+			}
+		],
+		"keybindings": [
+			{
+				"command": "changeline.vcsOperations",
+				"key": "alt+`",
+				"when": "!terminalFocus"
+			},
+			{
+				"command": "changeline.vcsOperations",
+				"key": "alt+`",
+				"mac": "ctrl+v",
+				"when": "config.changeline.jetbrainsKeymap && !terminalFocus"
+			},
+			{
+				"command": "changeline.changes.showDiff",
+				"key": "ctrl+d",
+				"mac": "cmd+d",
+				"when": "focusedView == changeline.changes"
+			},
+			{
+				"command": "changeline.changes.openFile",
+				"key": "f4",
+				"when": "focusedView == changeline.changes"
+			},
+			{
+				"command": "changeline.changes.rollback",
+				"key": "ctrl+alt+z",
+				"mac": "cmd+alt+z",
+				"when": "focusedView == changeline.changes"
+			},
+			{
+				"command": "changeline.changes.moveToChangelist",
+				"key": "f6",
+				"when": "focusedView == changeline.changes"
+			},
+			{
+				"command": "changeline.changes.delete",
+				"key": "delete",
+				"mac": "cmd+backspace",
+				"when": "focusedView == changeline.changes"
+			},
+			{
+				"command": "changeline.changes.refresh",
+				"key": "ctrl+r",
+				"mac": "cmd+r",
+				"when": "focusedView == changeline.changes"
+			},
+			{
+				"command": "changeline.commit",
+				"key": "ctrl+k",
+				"mac": "cmd+k",
+				"when": "config.changeline.jetbrainsKeymap"
+			},
+			{
+				"command": "changeline.push",
+				"key": "ctrl+shift+k",
+				"mac": "cmd+shift+k",
+				"when": "config.changeline.jetbrainsKeymap"
+			},
+			{
+				"command": "changeline.updateProject",
+				"key": "ctrl+t",
+				"mac": "cmd+t",
+				"when": "config.changeline.jetbrainsKeymap"
+			},
+			{
+				"command": "changeline.branches",
+				"key": "ctrl+shift+`",
+				"mac": "ctrl+shift+`",
+				"when": "config.changeline.jetbrainsKeymap && !terminalFocus"
+			},
+			{
+				"command": "changeline.changes.rollback",
+				"key": "ctrl+alt+z",
+				"mac": "cmd+alt+z",
+				"when": "config.changeline.jetbrainsKeymap && !focusedView"
+			},
+			{
+				"command": "changeline.showDiff",
+				"key": "ctrl+d",
+				"mac": "cmd+d",
+				"when": "config.changeline.jetbrainsKeymap && editorTextFocus && resourceScheme == file"
+			},
+			{
+				"command": "changeline.log.focus",
+				"key": "alt+9",
+				"mac": "cmd+9",
+				"when": "config.changeline.jetbrainsKeymap"
+			},
+			{
+				"command": "changeline.changes.focus",
+				"key": "alt+0",
+				"mac": "cmd+0",
+				"when": "config.changeline.jetbrainsKeymap"
+			}
+		],
+		"configuration": {
+			"title": "Changeline",
+			"properties": {
+				"changeline.path": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "%config.path%",
+					"scope": "machine"
+				},
+				"changeline.repositoryScanMaxDepth": {
+					"type": "number",
+					"default": 1,
+					"markdownDescription": "%config.repositoryScanMaxDepth%"
+				},
+				"changeline.commit.useStagingArea": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%config.commit.useStagingArea%"
+				},
+				"changeline.commit.clickAction": {
+					"type": "string",
+					"default": "diff",
+					"markdownDescription": "%config.commit.clickAction%",
+					"enum": [
+						"diff",
+						"source"
+					],
+					"enumDescriptions": [
+						"%config.commit.clickAction.diff%",
+						"%config.commit.clickAction.source%"
+					]
+				},
+				"changeline.commit.subjectLengthLimit": {
+					"type": "number",
+					"default": 72,
+					"markdownDescription": "%config.commit.subjectLengthLimit%"
+				},
+				"changeline.commit.bodyLineLengthLimit": {
+					"type": "number",
+					"default": 72,
+					"markdownDescription": "%config.commit.bodyLineLengthLimit%"
+				},
+				"changeline.commit.messageInspections": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%config.commit.messageInspections%"
+				},
+				"changeline.commit.signOff": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%config.commit.signOff%"
+				},
+				"changeline.commit.runHooks": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%config.commit.runHooks%"
+				},
+				"changeline.commit.analyzeCode": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%config.commit.analyzeCode%"
+				},
+				"changeline.commit.checkTodo": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%config.commit.checkTodo%"
+				},
+				"changeline.commit.reformatCode": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%config.commit.reformatCode%"
+				},
+				"changeline.commit.optimizeImports": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%config.commit.optimizeImports%"
+				},
+				"changeline.commit.testTask": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "%config.commit.testTask%"
+				},
+				"changeline.commit.warnAboutCrlf": {
+					"type": [
+						"boolean",
+						"null"
+					],
+					"default": null,
+					"markdownDescription": "%config.commit.warnAboutCrlf%"
+				},
+				"changeline.commit.offerDeleteEmptyChangelist": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%config.commit.offerDeleteEmptyChangelist%"
+				},
+				"changeline.changes.groupBy": {
+					"type": "string",
+					"default": "none",
+					"markdownDescription": "%config.changes.groupBy%",
+					"enum": [
+						"none",
+						"directory"
+					]
+				},
+				"changeline.changes.groupByRepository": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%config.changes.groupByRepository%"
+				},
+				"changeline.changes.showIgnored": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%config.changes.showIgnored%"
+				},
+				"changeline.diff.viewer": {
+					"type": "string",
+					"default": "jetbrains",
+					"markdownDescription": "%config.diff.viewer%",
+					"enum": [
+						"jetbrains",
+						"native"
+					],
+					"enumDescriptions": [
+						"%config.diff.viewer.jetbrains%",
+						"%config.diff.viewer.native%"
+					]
+				},
+				"changeline.diff.ignoreWhitespace": {
+					"type": "string",
+					"default": "none",
+					"markdownDescription": "%config.diff.ignoreWhitespace%",
+					"enum": [
+						"none",
+						"trim",
+						"all"
+					]
+				},
+				"changeline.diff.sideBySide": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%config.diff.sideBySide%"
+				},
+				"changeline.diff.collapseUnchanged": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%config.diff.collapseUnchanged%"
+				},
+				"changeline.diff.contextLines": {
+					"type": "number",
+					"default": 4,
+					"markdownDescription": "%config.diff.contextLines%"
+				},
+				"changeline.log.pageSize": {
+					"type": "number",
+					"default": 1000,
+					"markdownDescription": "%config.log.pageSize%"
+				},
+				"changeline.log.order": {
+					"type": "string",
+					"default": "date",
+					"markdownDescription": "%config.log.order%",
+					"enum": [
+						"date",
+						"topo"
+					],
+					"enumDescriptions": [
+						"%config.log.order.date%",
+						"%config.log.order.topo%"
+					]
+				},
+				"changeline.log.dateFormat": {
+					"type": "string",
+					"default": "relative",
+					"markdownDescription": "%config.log.dateFormat%",
+					"enum": [
+						"relative",
+						"absolute"
+					]
+				},
+				"changeline.annotate.showAuthor": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%config.annotate.showAuthor%"
+				},
+				"changeline.annotate.showDate": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%config.annotate.showDate%"
+				},
+				"changeline.annotate.showCommitHash": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%config.annotate.showCommitHash%"
+				},
+				"changeline.annotate.colors": {
+					"type": "string",
+					"default": "age",
+					"markdownDescription": "%config.annotate.colors%",
+					"enum": [
+						"age",
+						"author",
+						"none"
+					]
+				},
+				"changeline.annotate.nameFormat": {
+					"type": "string",
+					"default": "full",
+					"markdownDescription": "%config.annotate.nameFormat%",
+					"enum": [
+						"full",
+						"first",
+						"last",
+						"initials",
+						"email"
+					]
+				},
+				"changeline.annotate.ignoreWhitespace": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%config.annotate.ignoreWhitespace%"
+				},
+				"changeline.update.method": {
+					"type": "string",
+					"default": "ask",
+					"markdownDescription": "%config.update.method%",
+					"enum": [
+						"ask",
+						"merge",
+						"rebase",
+						"branchDefault"
+					],
+					"enumDescriptions": [
+						"%config.update.method.ask%",
+						"%config.update.method.merge%",
+						"%config.update.method.rebase%",
+						"%config.update.method.branchDefault%"
+					]
+				},
+				"changeline.update.submodules": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%config.update.submodules%"
+				},
+				"changeline.branches.syncControl": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%config.branches.syncControl%"
+				},
+				"changeline.push.autoUpdateOnReject": {
+					"type": "string",
+					"default": "ask",
+					"markdownDescription": "%config.push.autoUpdateOnReject%",
+					"enum": [
+						"ask",
+						"merge",
+						"rebase"
+					],
+					"enumDescriptions": [
+						"%config.push.autoUpdateOnReject.ask%",
+						"%config.push.autoUpdateOnReject.merge%",
+						"%config.push.autoUpdateOnReject.rebase%"
+					]
+				},
+				"changeline.push.protectedBranches": {
+					"type": "array",
+					"default": [
+						"master",
+						"main"
+					],
+					"markdownDescription": "%config.push.protectedBranches%",
+					"items": {
+						"type": "string"
+					}
+				},
+				"changeline.cherryPick.addSourceReference": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%config.cherryPick.addSourceReference%"
+				},
+				"changeline.shelf.removeAfterUnshelve": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%config.shelf.removeAfterUnshelve%"
+				},
+				"changeline.autoFetch.interval": {
+					"type": "number",
+					"default": 0,
+					"markdownDescription": "%config.autoFetch.interval%"
+				},
+				"changeline.statusBar.showBranch": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%config.statusBar.showBranch%"
+				},
+				"changeline.decorations.explorer": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%config.decorations.explorer%"
+				},
+				"changeline.github.enterpriseHosts": {
+					"type": "array",
+					"default": [],
+					"markdownDescription": "%config.github.enterpriseHosts%",
+					"items": {
+						"type": "string"
+					}
+				},
+				"changeline.gitlab.hosts": {
+					"type": "array",
+					"default": [],
+					"markdownDescription": "%config.gitlab.hosts%",
+					"items": {
+						"type": "string"
+					}
+				},
+				"changeline.lineStatus.enabled": {
+					"type": "string",
+					"default": "auto",
+					"markdownDescription": "%config.lineStatus.enabled%",
+					"enum": [
+						"auto",
+						"on",
+						"off"
+					]
+				},
+				"changeline.askpass.enabled": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%config.askpass.enabled%"
+				},
+				"changeline.console.showOutput": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%config.console.showOutput%"
+				},
+				"changeline.jetbrainsKeymap": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%config.jetbrainsKeymap%"
+				}
+			}
+		},
+		"colors": [
+			{
+				"id": "changeline.modifiedForeground",
+				"description": "%color.modifiedForeground%",
+				"defaults": {
+					"dark": "#6897BB",
+					"light": "#0032A0",
+					"highContrast": "#6897BB",
+					"highContrastLight": "#0032A0"
+				}
+			},
+			{
+				"id": "changeline.addedForeground",
+				"description": "%color.addedForeground%",
+				"defaults": {
+					"dark": "#629755",
+					"light": "#067D17",
+					"highContrast": "#629755",
+					"highContrastLight": "#067D17"
+				}
+			},
+			{
+				"id": "changeline.deletedForeground",
+				"description": "%color.deletedForeground%",
+				"defaults": {
+					"dark": "#8C8C8C",
+					"light": "#6C6C6C",
+					"highContrast": "#8C8C8C",
+					"highContrastLight": "#6C6C6C"
+				}
+			},
+			{
+				"id": "changeline.renamedForeground",
+				"description": "%color.renamedForeground%",
+				"defaults": {
+					"dark": "#6897BB",
+					"light": "#0032A0",
+					"highContrast": "#6897BB",
+					"highContrastLight": "#0032A0"
+				}
+			},
+			{
+				"id": "changeline.unversionedForeground",
+				"description": "%color.unversionedForeground%",
+				"defaults": {
+					"dark": "#D1675A",
+					"light": "#993300",
+					"highContrast": "#D1675A",
+					"highContrastLight": "#993300"
+				}
+			},
+			{
+				"id": "changeline.conflictForeground",
+				"description": "%color.conflictForeground%",
+				"defaults": {
+					"dark": "#D5756C",
+					"light": "#E10000",
+					"highContrast": "#D5756C",
+					"highContrastLight": "#E10000"
+				}
+			},
+			{
+				"id": "changeline.ignoredForeground",
+				"description": "%color.ignoredForeground%",
+				"defaults": {
+					"dark": "#848504",
+					"light": "#827717",
+					"highContrast": "#848504",
+					"highContrastLight": "#827717"
+				}
+			}
+		]
+	},
+	"scripts": {
+		"build": "node esbuild.mjs",
+		"watch": "node esbuild.mjs --watch",
+		"package:build": "node esbuild.mjs --production",
+		"typecheck": "tsc -p tsconfig.json --noEmit && tsc -p webview-src/tsconfig.json",
+		"manifest": "python3 scripts/gen-manifest.py",
+		"test:unit": "tsc -p tsconfig.json && node --test \"out/test/unit/*.test.js\" \"out/test/integration/*.test.js\"",
+		"test:e2e": "node esbuild.mjs && tsc -p tsconfig.json && node out/test/e2e/runTests.js",
+		"vscode:prepublish": "node esbuild.mjs --production",
+		"package": "vsce package --no-dependencies --no-rewrite-relative-links --allow-missing-repository"
+	},
+	"dependencies": {
+		"highlight.js": "^11.12.0",
+		"markdown-it": "^14.3.3",
+		"preact": "^10.29.8"
+	},
+	"devDependencies": {
+		"@types/markdown-it": "^14.2.0",
+		"@types/node": "^20.19.43",
+		"@types/vscode": "^1.90.0",
+		"@vscode/codicons": "^0.0.46-24",
+		"@vscode/test-electron": "^3.1.0",
+		"@vscode/vsce": "^4.0.0",
+		"esbuild": "^0.25.12",
+		"typescript": "^5.9.3"
+	}
+}
