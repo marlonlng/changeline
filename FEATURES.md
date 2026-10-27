@@ -49,6 +49,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | Highlight words, ignore whitespace, collapse unchanged fragments | Diff toolbar | V, H |
 | » revert chunk, include checkbox, stage / unstage chunk | Diff gutter | V (revert, include), I (stage / unstage index writes), H |
 | Next / previous difference (F7), next / previous file | Toolbar, keys | V, H |
+| Change markers in the scrollbar, click jumps to the change | Overview bar of the diff viewer | U, V, S 02 |
 | Jump to source (F4), open in native diff editor | Toolbar, F4 in Local Changes | E |
 | Compare with Clipboard | Editor → Git menu | E |
 | Conflicts dialog (Accept Yours / Theirs, Merge…) | Opens on conflicts | E, V, S 11 |

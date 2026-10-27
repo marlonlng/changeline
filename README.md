@@ -41,7 +41,7 @@ It talks to the `git` executable directly and works next to (or instead of) VS C
 | Commit inspections (subject length, blank line), "Analyze code", "Check TODO" | Inline warnings in the message box, options under the gear button |
 | Commit / Commit and Push… | Buttons in the Commit Message view (⌘↩ / ⌥⌘↩) |
 | Rollback (⌥⌘Z) with "Delete local copies of added files" | *Rollback…* in the tree, editor and explorer menus |
-| Diff viewer: side-by-side / unified, highlight words, ignore whitespace, collapse unchanged, »-revert arrows, F7 navigation, file navigation | JetBrains-style diff viewer (setting `changeline.diff.viewer`, VS Code diff editor is one click away) |
+| Diff viewer: side-by-side / unified, highlight words, ignore whitespace, collapse unchanged, »-revert arrows, change markers in the scrollbar, F7 navigation, file navigation | JetBrains-style diff viewer (setting `changeline.diff.viewer`, VS Code diff editor is one click away) |
 | Git tool window → Log (⌘9) | Panel **Git → Log**: branches pane, filters (text/hash with regex and case, Branch, User, Date, Paths), commit graph with labels, changed files and commit details |
 | Log context menu | Copy Revision, Create Patch, Cherry-Pick, Checkout Revision, Show Repository at Revision, Compare with Local, Reset Current Branch to Here, Revert, Undo Commit, Edit Commit Message, Fixup, Squash Into, Squash Commits, Drop Commits, Interactively Rebase from Here, Push All up to Here, New Branch, New Tag, Go to Parent/Child, Open in Browser |
 | Changed files context menu in the log | Show Diff, Compare with Local, Edit Source, Open Repository Version, Revert / Cherry-Pick Selected Changes, Show History up to Here, Annotate Revision |

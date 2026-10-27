@@ -95,9 +95,18 @@ test('diff viewer: highlighting, word diff, whitespace, collapse, F7, unified, i
 	await w.key('F7', { shift: true });
 	await waitFor(async () => Number(await current()) === first, 'Shift+F7 moves back');
 
+	await w.waitFor(`document.querySelectorAll('.jg-overview .mark').length === 3`, 'a mark per change in the scrollbar');
+	const marks = await w.eval<{ cls: string; top: number }[]>(`[...document.querySelectorAll('.jg-overview .mark')].map((m) => ({ cls: m.className, top: m.getBoundingClientRect().top }))`);
+	assert.ok(marks.every((m) => m.cls.includes('mod')), JSON.stringify(marks));
+	assert.ok(marks[0].top < marks[1].top && marks[1].top < marks[2].top, `marks in the order of the changes: ${JSON.stringify(marks)}`);
+	assert.equal(await w.eval<number>(`(() => { const b = document.querySelector('.diff-body'); return b.offsetWidth - b.clientWidth; })()`), 0, 'the overview replaces the native scrollbar');
+	await w.eval(`document.querySelector('.jg-overview .mark[data-mark="2"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }))`);
+	await w.waitFor(`document.querySelector('.row.ch.current')?.dataset.chunk === '2' && document.querySelector('.jg-overview .mark.current')?.dataset.mark === '2'`, 'clicking a mark selects its change');
+
 	await w.select('select[title="Viewer"]', 'unified');
 	await w.waitFor(`document.querySelectorAll('.diff-body.unified .u-chunk').length === 3`, 'unified viewer');
 	assert.ok((await w.count('.u-line.del')) >= 3 && (await w.count('.u-line.ins')) >= 3);
+	await w.waitFor(`document.querySelectorAll('.jg-overview .mark.mod').length === 3`, 'marks in the unified viewer');
 	await w.select('select[title="Viewer"]', 'side');
 	await w.waitFor(`document.querySelectorAll('.diff-body.side .row.ch').length === 3`, 'back to side by side');
 
@@ -111,6 +120,7 @@ test('diff viewer: highlighting, word diff, whitespace, collapse, F7, unified, i
 	await w.click('.row.ch[data-chunk="0"] [data-action="revert"]');
 	await waitFor(() => read('src/code.ts').includes('"Hello "'), 'first chunk reverted on disk');
 	await w.waitFor(`document.querySelectorAll('.row.ch').length === 2`, 'two chunks left');
+	await w.waitFor(`document.querySelectorAll('.jg-overview .mark').length === 2`, 'marks follow the remaining changes');
 	assert.ok(read('src/code.ts').includes('value35 = 3500'), 'other chunks untouched');
 	await closeAll();
 });

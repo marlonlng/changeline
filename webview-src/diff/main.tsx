@@ -9,6 +9,7 @@ import { highlightLines, languageFor, renderSegments, Segment } from '../common/
 import { call, on } from '../common/rpc';
 import MarkdownIt from 'markdown-it';
 import { language, plural, t } from '../common/l10n';
+import { measureMarks, OverviewRuler } from '../common/overview';
 
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true });
 
@@ -128,6 +129,8 @@ function buildModel(d: DiffData, s: Settings): Model {
 	}
 	return { oldLines, newLines, chunks, keys, hlOld, hlNew, words };
 }
+
+const markClass = (el: HTMLElement) => ['ins', 'del', 'mod', 'excluded', 'current'].filter((c) => el.classList.contains(c)).join(' ');
 
 function chunkKind(c: DiffChunk): 'ins' | 'del' | 'mod' {
 	if (c.oldStart === c.oldEnd) {
@@ -310,7 +313,7 @@ function renderUnified(m: Model, blocks: Block[], d: DiffData, s: Settings, curr
 				lines.push(threadHtml(threads, 'RIGHT', i + 1, i + 1));
 			}
 			out.push(
-				`<div class="u-chunk${isExcluded ? ' excluded' : ''}${b.index === current ? ' current' : ''}" data-chunk="${b.index}">` +
+				`<div class="u-chunk ${chunkKind(c)}${isExcluded ? ' excluded' : ''}${b.index === current ? ' current' : ''}" data-chunk="${b.index}">` +
 					(actions.length ? `<div class="u-actions">${actions.join('')}</div>` : '') +
 					lines.join('') +
 					`</div>`,
@@ -586,13 +589,24 @@ function App() {
 			) : identical ? (
 				<div class="jg-empty">{eolOnly ? t('Contents are identical (only line separators differ)') : data.leftMissing && data.rightMissing ? t('No content') : t('Contents are identical')}</div>
 			) : null}
-			<div
-				ref={bodyRef}
-				class={`diff-body jg-code ${s.sideBySide ? 'side' : 'unified'}${busy ? ' busy' : ''}${data.review ? ' review' : ''}`}
-				style={{ '--lnw': lnWidth, display: data.binary || data.tooLarge || identical ? 'none' : undefined } as any}
-				onClick={onBodyClick as any}
-				onDblClick={onBodyDblClick as any}
-			/>
+			<div class="diff-scroll" style={{ display: data.binary || data.tooLarge || identical ? 'none' : undefined }}>
+				<div
+					ref={bodyRef}
+					class={`diff-body jg-code ${s.sideBySide ? 'side' : 'unified'}${busy ? ' busy' : ''}${data.review ? ' review' : ''}`}
+					style={{ '--lnw': lnWidth } as any}
+					onClick={onBodyClick as any}
+					onDblClick={onBodyDblClick as any}
+				/>
+				<OverviewRuler
+					target={bodyRef}
+					revision={html}
+					measure={(el) => measureMarks(el, '[data-chunk]', markClass)}
+					onMark={(i) => {
+						setCurrent(i);
+						scrollToChunk(i);
+					}}
+				/>
+			</div>
 			{data.review && (
 				<div class="review-bar">
 					{composer ? (

@@ -1,0 +1,46 @@
+:root {
+	--jg-overview-width: 14px;
+}
+
+.jg-overview {
+	position: relative;
+	flex: none;
+	width: var(--jg-overview-width);
+	overflow: hidden;
+	box-shadow: inset 1px 0 0 var(--vscode-editorOverviewRuler-border, rgba(127, 127, 127, 0.3));
+	user-select: none;
+	touch-action: none;
+}
+
+.jg-overview .mark {
+	position: absolute;
+	left: 3px;
+	right: 2px;
+	min-height: 3px;
+	cursor: pointer;
+}
+
+.jg-overview .mark.current {
+	left: 1px;
+	right: 0;
+}
+
+.jg-overview .mark.excluded {
+	opacity: 0.45;
+}
+
+.jg-overview .thumb {
+	position: absolute;
+	left: 1px;
+	right: 0;
+	z-index: 1;
+	background: var(--vscode-scrollbarSlider-background);
+}
+
+.jg-overview .thumb:hover {
+	background: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+.jg-overview.dragging .thumb {
+	background: var(--vscode-scrollbarSlider-activeBackground);
+}
