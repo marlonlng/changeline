@@ -722,10 +722,26 @@ test('shelve silently, staging area mode, line status markers, console', async (
 	await waitFor(() => api._test.scm.count === s.repos.repositories.length, 'source controls');
 	fs.writeFileSync(abs, 'changed for markers\n');
 	await repo.refresh();
-	const originalUri = api._test.scm.originalResource(repo, vscode.Uri.file(abs));
+	const originalUri = await api._test.scm.originalResource(repo, vscode.Uri.file(abs));
 	assert.equal(originalUri?.scheme, 'changeline');
 	assert.equal(JSON.parse(originalUri!.query).ref, 'HEAD');
 	assert.equal((await vscode.workspace.openTextDocument(originalUri!)).getText(), original + 'staged line\n');
+	const exclude = path.join(repo.root, '.git', 'info', 'exclude');
+	const excluded = fs.existsSync(exclude) ? fs.readFileSync(exclude, 'utf8') : undefined;
+	fs.mkdirSync(path.dirname(exclude), { recursive: true });
+	fs.appendFileSync(exclude, '\n.env.local\n');
+	fs.writeFileSync(path.join(ws, '.env.local'), 'SECRET=1\n');
+	try {
+		await repo.refresh();
+		assert.equal(await api._test.scm.originalResource(repo, vscode.Uri.file(path.join(ws, '.env.local'))), undefined, 'no line markers for an ignored file');
+	} finally {
+		fs.rmSync(path.join(ws, '.env.local'));
+		if (excluded === undefined) {
+			fs.rmSync(exclude);
+		} else {
+			fs.writeFileSync(exclude, excluded);
+		}
+	}
 	await setting('lineStatus.enabled', undefined);
 	await waitFor(() => api._test.scm.count === 0, 'off next to the built-in Git support');
 	await repo.restore(['b.txt']);

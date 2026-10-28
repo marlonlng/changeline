@@ -111,6 +111,24 @@ test('commit deletions and renames, amend, rollback', async () => {
 	assert.deepEqual(repo.state.untracked.map((u) => u.path), ['added.txt']);
 });
 
+test('hasFile: tracked, staged, untracked and ignored files', async () => {
+	const repo = await newRepo('hasfile');
+	write(repo, '.gitignore', '.env.local\n');
+	write(repo, 'tracked.txt', 't\n');
+	await repo.stage(['.']);
+	await repo.commit({ message: 'base' });
+	write(repo, '.env.local', 'SECRET=1\n');
+	write(repo, 'untracked.txt', 'u\n');
+	write(repo, 'staged.txt', 's\n');
+	await repo.add(['staged.txt']);
+	assert.equal(await repo.hasFile('HEAD', 'tracked.txt'), true);
+	assert.equal(await repo.hasFile('HEAD', '.env.local'), false);
+	assert.equal(await repo.hasFile('HEAD', 'untracked.txt'), false);
+	assert.equal(await repo.hasFile('HEAD', 'staged.txt'), false);
+	assert.equal(await repo.hasFile('', 'staged.txt'), true);
+	assert.equal(await repo.hasFile('', '.env.local'), false);
+});
+
 test('merge conflict detection and stages', async () => {
 	const repo = await newRepo('merge');
 	write(repo, 'f.txt', 'a\nb\nc\n');

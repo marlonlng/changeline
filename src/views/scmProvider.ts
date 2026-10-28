@@ -5,6 +5,7 @@ import { services } from '../services';
 import { config, statusLabel } from '../util';
 
 export class ScmIntegration implements vscode.Disposable {
+	private tracked = new Map<string, Promise<boolean>>();
 	private controls = new Map<string, { scm: vscode.SourceControl; groups: Map<string, vscode.SourceControlResourceGroup> }>();
 	private disposables: vscode.Disposable[] = [];
 
@@ -12,7 +13,10 @@ export class ScmIntegration implements vscode.Disposable {
 		const s = services();
 		this.disposables.push(
 			s.repos.onDidChangeRepositories(() => this.sync()),
-			s.repos.onDidChangeState((r) => this.updateResources(r)),
+			s.repos.onDidChangeState((r) => {
+				this.tracked.clear();
+				this.updateResources(r);
+			}),
 			s.changelists.onDidChange(() => s.repos.repositories.forEach((r) => this.updateResources(r))),
 			vscode.workspace.onDidChangeConfiguration((e) => {
 				if (e.affectsConfiguration('changeline.lineStatus') || e.affectsConfiguration('git.enabled') || e.affectsConfiguration('changeline.commit.useStagingArea')) {
@@ -69,7 +73,8 @@ export class ScmIntegration implements vscode.Disposable {
 		return this.controls.size;
 	}
 
-	originalResource(repo: Repository, uri: vscode.Uri): vscode.Uri | undefined {
+	/** Version the line status markers compare a file with, or undefined for files git does not track at that version (untracked, ignored or newly added). */
+	async originalResource(repo: Repository, uri: vscode.Uri): Promise<vscode.Uri | undefined> {
 		if (uri.scheme !== 'file' || !repo.contains(uri.fsPath)) {
 			return undefined;
 		}
@@ -77,7 +82,14 @@ export class ScmIntegration implements vscode.Disposable {
 		if (repo.state.untracked.some((u) => u.path === rel) || !repo.state.head) {
 			return undefined;
 		}
-		return toGitUri(repo, config('commit.useStagingArea', false) ? '' : 'HEAD', rel);
+		const ref = config('commit.useStagingArea', false) ? '' : 'HEAD';
+		const key = `${repo.root}\0${ref}\0${rel}`;
+		let tracked = this.tracked.get(key);
+		if (!tracked) {
+			tracked = repo.hasFile(ref, rel);
+			this.tracked.set(key, tracked);
+		}
+		return (await tracked) ? toGitUri(repo, ref, rel) : undefined;
 	}
 
 	private updateResources(repo: Repository): void {

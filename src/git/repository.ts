@@ -533,10 +533,18 @@ export class Repository {
 	 * smudge/eol conversion so the result compares to working tree files.
 	 */
 	async getContent(ref: string, relPath: string, opts: { filters?: boolean } = {}): Promise<Buffer> {
-		const spec = ref === '' ? `:${relPath}` : /^:[0-3]$/.test(ref) ? `${ref}:${relPath}` : `${ref}:${relPath}`;
+		const spec = blobSpec(ref, relPath);
 		const args = opts.filters && this.git.versionAtLeast(2, 11) ? ['cat-file', '--filters', spec] : ['cat-file', 'blob', spec];
 		const r = await this.git.execBuffer(this.root, args);
 		return r.stdout;
+	}
+
+	/** Whether the file exists at a revision; `ref` as in getContent. */
+	async hasFile(ref: string, relPath: string): Promise<boolean> {
+		return this.run(['cat-file', '-e', blobSpec(ref, relPath)]).then(
+			() => true,
+			() => false,
+		);
 	}
 
 	async getContentOrEmpty(ref: string, relPath: string, opts: { filters?: boolean } = {}): Promise<Buffer | undefined> {
@@ -1465,4 +1473,8 @@ function safeRealpath(p: string): string {
 	} catch {
 		return p;
 	}
+}
+
+function blobSpec(ref: string, relPath: string): string {
+	return ref === '' ? `:${relPath}` : `${ref}:${relPath}`;
 }
