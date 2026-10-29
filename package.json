@@ -2,7 +2,7 @@
 	"name": "changeline",
 	"displayName": "Changeline – Changelists, Shelf & Git Log",
 	"description": "Changelists, partial commits, shelf, Git log with graph, branches popup, three-way merge, interactive rebase and pull requests for VS Code: the Git workflow known from JetBrains IDEs. Not affiliated with JetBrains.",
-	"version": "0.1.1",
+	"version": "0.2.0",
 	"publisher": "marlonlange",
 	"license": "MIT",
 	"repository": {

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0
+
+- Diff viewer: change markers in the scrollbar (green added, blue modified, gray deleted); clicking a marker jumps to the change
+- Fixed line status markers on ignored files such as `.env.local`, which showed every line as added; markers now only appear for files git has in HEAD (or in the index in staging area mode)
+
 ## 0.1.1
 
 - Fixed the merge window title on Windows, which showed the full path instead of the file name
