@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0
+
+- Diff viewer: two side-by-side editors that scroll together with curved bands between the changes, Synchronize Scrolling, highlight words / lines / split changes / characters / none, ignore whitespace and empty lines or formatting, soft wraps, line numbers and white spaces on demand, Annotate with Git Blame, Open in New Window, commit details for history diffs, a Diff Settings menu
+- Three-way merge window rebuilt with three linked panes and bands to the result, ignore whitespace, highlight modes and soft wraps
+- Change popup in the editor gutter: Rollback Lines, Show Diff, Copy and Move to Another Changelist
+- Partial changelists follow edits: new changes go to the active changelist, edited chunks keep theirs
+- Git log: all repositories in one log with root names, diff preview, view options grouped as in JetBrains (Show, Highlight, Graph Options), long edges with arrows, first parent, no merges, sort by date or topologically, highlight of not cherry-picked commits
+- Branches popup: Group by Prefix folders, worktrees, Checkout and Update, Checkout in New Worktree
+- Restore workspace on branch switching (`changeline.branches.restoreWorkspace`)
+- Clean working tree before update, smart checkout and rebase using stash or shelf (`changeline.saveChanges`)
+- Commit message: completion of words and symbols from the changed files, issue links (`changeline.issueNavigation`), wrap when typing reaches the right margin, Generate Commit Message with a VS Code language model
+- Commit options: Cleanup (fix all and optimize imports) before commit, Run advanced checks after a commit is done
+- Pull and merge requests: pending reviews (Start Review, Submit Review), resolve threads, apply suggestions, mark files as viewed, edit title, description, reviewers, assignees and labels, Ready for Review, review comments in the editor while the branch is checked out
+
 ## 0.2.0
 
 - Diff viewer: change markers in the scrollbar (green added, blue modified, gray deleted); clicking a marker jumps to the change
