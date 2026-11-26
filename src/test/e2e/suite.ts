@@ -499,6 +499,45 @@ test('restore workspace on branch switching reopens the editors of a branch', as
 	}
 });
 
+test('generate commit message: prompt with the diff and recent messages, streamed answer', async () => {
+	const { commitDiff, generateCommitMessage } = await import('../../generateMessage');
+	const repo = mainRepo();
+	await commitFile('gen.txt', 'one\n', 'Add gen file');
+	fs.writeFileSync(repo.absolutePath('gen.txt'), 'one\ntwo\n');
+	fs.writeFileSync(repo.absolutePath('gen-new.txt'), 'brand new\n');
+	await repo.refresh();
+	try {
+		const diff = await commitDiff(repo, ['gen.txt', 'gen-new.txt']);
+		assert.match(diff, /\+two/);
+		assert.match(diff, /New file gen-new\.txt:\nbrand new/);
+		let prompt = '';
+		const seen: string[] = [];
+		const model = {
+			sendRequest: async (messages: vscode.LanguageModelChatMessage[]) => {
+				prompt = messages
+					.map((m) => {
+						const content = (m as unknown as { content: string | { value?: string }[] }).content;
+						return typeof content === 'string' ? content : content.map((p) => p.value ?? '').join('');
+					})
+					.join('\n');
+				return { text: (async function* () {
+					yield '```\nAdd second line';
+					yield ' to gen\n```';
+				})() } as unknown as vscode.LanguageModelChatResponse;
+			},
+		};
+		const text = await generateCommitMessage(model, diff, ['Add gen file', 'Fix typo'], (t) => seen.push(t));
+		assert.equal(text, 'Add second line to gen');
+		assert.deepEqual(seen, ['Add second line', 'Add second line to gen\n']);
+		assert.match(prompt, /Recent commit messages:\n- Add gen file\n- Fix typo/);
+		assert.match(prompt, /\+two/);
+	} finally {
+		await repo.restore(['gen.txt']);
+		fs.rmSync(repo.absolutePath('gen-new.txt'), { force: true });
+		await repo.refresh();
+	}
+});
+
 test('review comments in the editor: threads, review comment, reply, resolve', async () => {
 	const { PrEditorComments } = await import('../../views/prEditorComments');
 	const repo = mainRepo();

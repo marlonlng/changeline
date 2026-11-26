@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { CommitController } from '../commit';
-import { canGenerateMessage, commitDiff, generateCommitMessage } from '../generateMessage';
+import { canGenerateMessage, commitDiff, generateCommitMessage, pickModel } from '../generateMessage';
 import { forgetIssueRules, issueRules } from '../issueLinks';
 import { services } from '../services';
 import type { IssueRule } from '../shared/issueLinks';
@@ -128,14 +128,14 @@ export class CommitMessageView implements vscode.WebviewViewProvider, vscode.Dis
 		this.generating = true;
 		this.push(false);
 		try {
+			const model = await pickModel();
+			if (!model) {
+				void vscode.window.showWarningMessage(vscode.l10n.t('No language model is available. Install and sign in to an extension that provides one, for example GitHub Copilot.'));
+				return;
+			}
 			const paths = this.changes.stagingMode ? undefined : this.changes.includedFiles().filter((f) => f.repo === repo).map((f) => f.change.path);
 			const [diff, recent] = await Promise.all([commitDiff(repo, paths), repo.log({ limit: 10 }).catch(() => [])]);
-			const text = await generateCommitMessage(diff, recent.map((c) => c.subject), (partial) => this.controller.setMessage(partial));
-			if (text === undefined) {
-				void vscode.window.showWarningMessage(vscode.l10n.t('No language model is available. Install and sign in to an extension that provides one, for example GitHub Copilot.'));
-			} else {
-				this.controller.setMessage(text);
-			}
+			this.controller.setMessage(await generateCommitMessage(model, diff, recent.map((c) => c.subject), (partial) => this.controller.setMessage(partial)));
 		} finally {
 			this.generating = false;
 			this.push(false);

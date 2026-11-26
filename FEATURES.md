@@ -33,7 +33,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | Completion in the commit message (⌃Space or while typing): changed file names and class, function and method names (workspace symbols and symbols of the changed files) | Commit Message view | U, V |
 | Issue navigation: issue IDs link to the tracker (`changeline.issueNavigation`, #123 for GitHub / GitLab) | Commit message, log details, annotate tooltip, diff header | U, V |
 | Right margin with "Wrap when typing reaches right margin" | Commit Message view, `changeline.commit.wrapWhenTypingReachesRightMargin` | U, V |
-| Generate commit message (AI Assistant) | Sparkle button, uses VS Code's language model API (e.g. GitHub Copilot) when one is installed | — |
+| Generate commit message (AI Assistant) | Sparkle button, uses VS Code's language model API (e.g. GitHub Copilot) when one is installed | E (prompt, streaming and diff with a stand-in model) |
 | Author, Sign-off, Run Git hooks, GPG signing | Options (gear) | I (args), V (options panel) |
 | Before commit: Reformat code, Optimize imports, Analyze code, Check TODO, Run tests | Options (gear); the formatter, organize-imports action, problems and task of the workspace | E |
 | Detached HEAD warning, CRLF warning (Windows) | Modal before commit | E |
