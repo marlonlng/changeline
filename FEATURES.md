@@ -51,6 +51,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | Next / previous difference (F7), next / previous file | Toolbar, keys | V, H |
 | Change markers in the scrollbar, click jumps to the change | Overview bar of the diff viewer | U, V, S 02 |
 | Jump to source (F4), open in native diff editor | Toolbar, F4 in Local Changes | E |
+| Commit details (message, author, date, hash) above diffs from the log and file history (2025.1) | Diff viewer header | E |
 | Compare with Clipboard | Editor → Git menu | E |
 | Conflicts dialog (Accept Yours / Theirs, Merge…) | Opens on conflicts | E, V, S 11 |
 | Three-way merge window with »/«/✕, Apply Non-Conflicting Changes, Resolve Simple Conflicts, Accept Left/Right | Merge window | U, V, S 12, H |

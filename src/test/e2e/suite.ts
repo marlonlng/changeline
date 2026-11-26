@@ -582,6 +582,8 @@ test('log context menus on commits and changed files', async () => {
 
 		await onFile('changeline.logFile.showDiff', h2);
 		await waitFor(() => hasTab('Diff: ctx.txt'), 'file diff');
+		const shown = (await api._test.diffPanel()!.request('ready')) as { commit?: { hash: string; subject: string; author: string } };
+		assert.deepEqual([shown.commit?.hash, shown.commit?.subject, shown.commit?.author], [h2, 'ctx change', 'E2E Tester'], 'the diff shows the details of the commit');
 		await closeAll();
 		await onFile('changeline.logFile.compareWithLocal', h1);
 		await waitFor(() => hasTab('Diff: ctx.txt'), 'file compared with local');

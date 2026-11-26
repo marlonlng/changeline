@@ -147,7 +147,7 @@ export class DiffPanel extends WebviewPanelBase {
 		const s = services();
 		const focus = this.focus;
 		this.focus = undefined;
-		const [leftBuf, rightBuf] = await Promise.all([readSide(t.repo, t.left), readSide(t.repo, t.right)]);
+		const [leftBuf, rightBuf, commit] = await Promise.all([readSide(t.repo, t.left), readSide(t.repo, t.right), t.commit ? t.repo.getCommit(t.commit).catch(() => undefined) : undefined]);
 		const binary = (!!leftBuf && isBinary(leftBuf)) || (!!rightBuf && isBinary(rightBuf));
 		const tooLarge = (leftBuf?.length ?? 0) > MAX_SIZE || (rightBuf?.length ?? 0) > MAX_SIZE;
 		const abs = t.repo.absolutePath(t.path);
@@ -201,6 +201,7 @@ export class DiffPanel extends WebviewPanelBase {
 			files: this.ctx.targets.map((x) => ({ path: x.path, status: x.status })),
 			settings: this.settings(),
 			review: t.review ? { title: t.review.title, comments: t.review.comments } : undefined,
+			commit: commit && { hash: commit.hash, subject: commit.subject, body: commit.body, author: commit.author, authorEmail: commit.authorEmail, authorDate: commit.authorDate },
 			focus,
 		};
 	}

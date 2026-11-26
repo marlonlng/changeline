@@ -41,6 +41,7 @@ export interface DiffTarget {
 	rightTitle: string;
 	mode: DiffMode;
 	review?: DiffReview;
+	commit?: string;
 }
 
 export interface DiffContext {
@@ -91,7 +92,7 @@ export function commitFileTarget(repo: Repository, commit: { hash: string; paren
 		repo, path: file.path, status: file.status,
 		left: file.status === 'A' || file.status === 'C' || !parent ? { kind: 'empty' } : { kind: 'git', ref: parent, path: file.origPath ?? file.path },
 		right: file.status === 'D' ? { kind: 'empty' } : { kind: 'git', ref: commit.hash, path: file.path },
-		leftTitle: parent ? shortHash(parent) : vscode.l10n.t('Empty'), rightTitle: shortHash(commit.hash), mode: 'readonly',
+		leftTitle: parent ? shortHash(parent) : vscode.l10n.t('Empty'), rightTitle: shortHash(commit.hash), mode: 'readonly', commit: commit.hash,
 	};
 }
 

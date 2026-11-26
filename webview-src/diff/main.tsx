@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { chunkKey, DiffChunk, diffLines, diffWords, HighlightMode, rangesInLine, splitChunks, splitLines, stripEol, WhitespaceMode } from '../../src/shared/diff';
 import { chunkForLineChange, LineChange } from '../../src/shared/lineChanges';
 import { Checkbox, Icon, IconButton, useKeys } from '../common/components';
-import { basename, dirname } from '../common/format';
+import { basename, dirname, fullDate } from '../common/format';
 import { highlightLines, languageFor, renderSegments, Segment } from '../common/highlight';
 import { call, on } from '../common/rpc';
 import MarkdownIt from 'markdown-it';
@@ -90,6 +90,7 @@ interface DiffData {
 	fileList?: string;
 	chunkLists?: Record<string, string>;
 	focus?: LineChange;
+	commit?: { hash: string; subject: string; body: string; author: string; authorEmail: string; authorDate: number };
 }
 
 interface Model {
@@ -660,6 +661,14 @@ function App() {
 				<IconButton icon="split-horizontal" title={t('Open in VS Code Diff Editor')} onClick={() => call('openNative')} />
 			</div>
 			{error && <div class="banner jg-error">{error}</div>}
+			{data.commit && (
+				<div class="commit-info">
+					<div class="commit-message">{data.commit.body.trim() ? `${data.commit.subject}\n\n${data.commit.body.trim()}` : data.commit.subject}</div>
+					<div class="jg-muted commit-meta">
+						<Icon name="account" /> {data.commit.author} &lt;{data.commit.authorEmail}&gt; · {fullDate(data.commit.authorDate)} · <span class="commit-hash">{data.commit.hash}</span>
+					</div>
+				</div>
+			)}
 			<div class="titles" style={{ '--lnw': lnWidth } as any}>
 				{s.sideBySide ? (
 					<>
