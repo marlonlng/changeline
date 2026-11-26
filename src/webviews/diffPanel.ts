@@ -15,6 +15,7 @@ const SETTINGS_KEY = 'changeline.diff.viewSettings';
 export interface DiffViewSettings {
 	whitespace: WhitespaceMode;
 	sideBySide: boolean;
+	softWrap: boolean;
 	collapse: boolean;
 	highlightWords: boolean;
 	context: number;
@@ -134,6 +135,7 @@ export class DiffPanel extends WebviewPanelBase {
 		return {
 			whitespace: stored.whitespace ?? config<WhitespaceMode>('diff.ignoreWhitespace', 'none'),
 			sideBySide: stored.sideBySide ?? config('diff.sideBySide', true),
+			softWrap: stored.softWrap ?? config('diff.softWraps', false),
 			collapse: stored.collapse ?? config('diff.collapseUnchanged', false),
 			highlightWords: stored.highlightWords ?? true,
 			context: config('diff.contextLines', 4),

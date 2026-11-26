@@ -97,12 +97,10 @@ body.vscode-high-contrast-light {
 .diff-body {
 	flex: 1;
 	min-width: 0;
-	overflow: auto;
-	scrollbar-width: none;
+	min-height: 0;
 	user-select: text;
 	line-height: 1.45;
 	tab-size: 4;
-	padding-bottom: 40vh;
 }
 
 .diff-body.busy {
@@ -110,97 +108,188 @@ body.vscode-high-contrast-light {
 	opacity: 0.85;
 }
 
-
-.diff-body.side .row {
+.diff-body.side {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) 52px minmax(0, 1fr);
+	grid-template-rows: minmax(0, 1fr);
 }
 
-.diff-body .cell {
-	min-width: 0;
+.diff-body .pane,
+.diff-body.pane {
+	position: relative;
+	overflow-x: auto;
+	overflow-y: hidden;
+	outline: none;
 }
 
-.diff-body .row.eq .cell,
-.diff-body .line {
+.diff-body .content {
+	min-width: 100%;
+	width: max-content;
+	padding-bottom: 40vh;
+}
+
+.diff-body.wrap .content {
+	width: auto;
+}
+
+.diff-body .line,
+.diff-body .u-line {
 	display: flex;
-	min-width: 0;
 }
 
 .diff-body .ln {
 	flex: none;
+	position: sticky;
+	left: 0;
+	z-index: 1;
 	width: var(--lnw);
 	padding-right: 8px;
 	text-align: right;
 	color: var(--vscode-editorLineNumber-foreground);
+	background: var(--vscode-editor-background);
 	user-select: none;
+}
+
+.diff-body .u-line .ln + .ln {
+	left: var(--lnw);
 }
 
 .diff-body .code {
 	flex: 1;
-	min-width: 0;
-	white-space: pre-wrap;
-	word-break: break-all;
+	white-space: pre;
 	padding-right: 8px;
 }
 
-.diff-body .gut {
-	display: flex;
-	align-items: flex-start;
-	justify-content: center;
-	gap: 2px;
-	padding-top: 1px;
-	background: var(--vscode-editorGutter-background, transparent);
-	border-left: 1px solid var(--jg-border);
-	border-right: 1px solid var(--jg-border);
+.diff-body.wrap .code {
+	min-width: 0;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
 }
 
-.diff-body .row.ch.mod .cell {
+.diff-body .ch.mod,
+.diff-body .ch.mod .ln,
+.diff-body .pane.l .ch.del,
+.diff-body .pane.l .ch.del .ln,
+.diff-body .pane.r .ch.ins,
+.diff-body .pane.r .ch.ins .ln {
 	background: var(--d-mod);
 }
 
-.diff-body .row.ch.ins .cell.r {
-	background: var(--d-ins);
-}
-
-.diff-body .row.ch.del .cell.l {
+.diff-body .pane.l .ch.del,
+.diff-body .pane.l .ch.del .ln {
 	background: var(--d-del);
 }
 
-.diff-body .row.ch.mod .wd {
+.diff-body .pane.r .ch.ins,
+.diff-body .pane.r .ch.ins .ln {
+	background: var(--d-ins);
+}
+
+.diff-body .ch:empty {
+	position: relative;
+	height: 0;
+}
+
+.diff-body .ch:empty::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: -1px;
+	height: 2px;
+}
+
+.diff-body .pane.l .ch.ins:empty::before {
+	background: var(--d-ins-word);
+}
+
+.diff-body .pane.r .ch.del:empty::before {
+	background: var(--d-del-word);
+}
+
+.diff-body .ch.mod .wd {
 	background: var(--d-mod-word);
 	border-radius: 2px;
 }
 
-.diff-body .row.ch.ins .wd,
+.diff-body .ch.ins .wd,
 .diff-body .u-line.ins .wd {
 	background: var(--d-ins-word);
 }
 
-.diff-body .row.ch.del .wd,
+.diff-body .ch.del .wd,
 .diff-body .u-line.del .wd {
 	background: var(--d-del-word);
 }
 
-.diff-body .filler {
-	height: 2px;
-	margin-top: -1px;
-}
-
-.diff-body .row.ch.ins .cell.l .filler {
-	background: var(--d-ins-word);
-}
-
-.diff-body .row.ch.del .cell.r .filler {
-	background: var(--d-del-word);
-}
-
-.diff-body .row.ch.excluded .cell {
+.diff-body .ch.excluded > .line,
+.diff-body .ch.excluded::before {
 	opacity: 0.55;
 }
 
-.diff-body .row.ch.current .gut,
+.diff-body .pane.r .ch.current,
 .diff-body .u-chunk.current {
 	box-shadow: inset 2px 0 0 var(--vscode-focusBorder);
+}
+
+.diff-body .divider {
+	position: relative;
+	overflow: hidden;
+	border-left: 1px solid var(--jg-border);
+	border-right: 1px solid var(--jg-border);
+	background: var(--vscode-editorGutter-background, transparent);
+	user-select: none;
+}
+
+.diff-body .bands {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+
+.diff-body .band.mod {
+	fill: var(--d-mod);
+}
+
+.diff-body .band.ins {
+	fill: var(--d-ins);
+}
+
+.diff-body .band.del {
+	fill: var(--d-del);
+}
+
+.diff-body .band.excluded {
+	opacity: 0.55;
+}
+
+.diff-body .band.current {
+	stroke: var(--vscode-focusBorder);
+	stroke-width: 1;
+}
+
+.diff-body .acts-layer {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+.diff-body .acts {
+	position: absolute;
+	display: flex;
+	align-items: center;
+	gap: 1px;
+	padding-top: 1px;
+	pointer-events: auto;
+}
+
+.diff-body .acts.l {
+	left: 1px;
+}
+
+.diff-body .acts.r {
+	right: 1px;
 }
 
 .diff-body .act {
@@ -234,9 +323,7 @@ body.vscode-high-contrast-light {
 	cursor: pointer;
 }
 
-.diff-body .row.fold {
-	display: block;
-	text-align: center;
+.diff-body .fold {
 	color: var(--jg-muted);
 	cursor: pointer;
 	background: var(--vscode-editorWidget-background);
@@ -247,21 +334,24 @@ body.vscode-high-contrast-light {
 	padding: 1px 0;
 }
 
-.diff-body .row.fold:hover {
+.diff-body .fold-label {
+	position: sticky;
+	left: calc(var(--lnw) + 8px);
+	padding-left: calc(var(--lnw) + 8px);
+}
+
+.diff-body .fold:hover {
 	color: var(--vscode-textLink-foreground);
 }
 
 
-.diff-body.unified .u-line {
-	display: flex;
-	min-width: 0;
-}
-
-.diff-body.unified .u-line.del {
+.diff-body.unified .u-line.del,
+.diff-body.unified .u-line.del .ln {
 	background: var(--d-del);
 }
 
-.diff-body.unified .u-line.ins {
+.diff-body.unified .u-line.ins,
+.diff-body.unified .u-line.ins .ln {
 	background: var(--d-ins);
 }
 
@@ -310,14 +400,15 @@ body.vscode-high-contrast-light {
 	text-decoration: underline;
 }
 
-.diff-body .thread-row .cell {
-	padding: 0 10px 0 calc(var(--lnw) + 4px);
-}
-
 .diff-body .thread {
+	box-sizing: border-box;
+	width: min(640px, 40vw);
+	margin-left: calc(var(--lnw) + 4px);
+	white-space: normal;
 	font-family: var(--vscode-font-family);
 	font-size: var(--vscode-font-size);
-	margin: 4px 0 6px;
+	margin-top: 4px;
+	margin-bottom: 6px;
 	border: 1px solid var(--jg-border);
 	border-left: 3px solid var(--vscode-textLink-foreground);
 	border-radius: 4px;
@@ -327,8 +418,8 @@ body.vscode-high-contrast-light {
 }
 
 .diff-body.unified .thread {
+	width: min(760px, 80vw);
 	margin-left: calc(var(--lnw) * 2 + 8px);
-	margin-right: 10px;
 }
 
 .diff-body .cmt + .cmt {
@@ -397,8 +488,9 @@ body.vscode-high-contrast-light {
 	font-size: 12px;
 }
 
-.diff-body .row.ch.other-list .gut {
-	box-shadow: inset 0 0 0 1px var(--vscode-textLink-foreground);
+.diff-body .pane.r .ch.other-list {
+	outline: 1px solid var(--vscode-textLink-foreground);
+	outline-offset: -1px;
 }
 
 .diff-body .act.move .codicon {

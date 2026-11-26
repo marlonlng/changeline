@@ -445,6 +445,7 @@ configuration = O(title='Changeline', properties=O([
     ('changeline.changes.showIgnored', setting('boolean', False, 'Show ignored files in Local Changes.')),
     ('changeline.diff.viewer', setting('string', 'jetbrains', 'Viewer for diffs.', enum=['jetbrains', 'native'], enumDescriptions=['JetBrains style viewer with chunk rollback and partial commit', 'VS Code diff editor'])),
     ('changeline.diff.ignoreWhitespace', setting('string', 'none', 'Default whitespace handling of the diff viewer.', enum=['none', 'trim', 'all'])),
+    ('changeline.diff.softWraps', setting('boolean', False, 'Wrap long lines in the diff viewer instead of scrolling horizontally (*Use soft wraps* in JetBrains IDEs).')),
     ('changeline.diff.sideBySide', setting('boolean', True, 'Use the side-by-side viewer by default (otherwise unified).')),
     ('changeline.diff.collapseUnchanged', setting('boolean', False, 'Collapse unchanged fragments by default.')),
     ('changeline.diff.contextLines', setting('number', 4, 'Context lines kept around changes when unchanged fragments are collapsed.')),

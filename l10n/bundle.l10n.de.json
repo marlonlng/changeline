@@ -984,5 +984,6 @@
 	"Start Rebasing (⌘↩)": "Rebase starten (⌘↩)",
 	"Start Rebasing": "Rebase starten",
 	"current": "aktuell",
-	"active": "aktiv"
+	"active": "aktiv",
+	"Use soft wraps": "Soft Wraps verwenden"
 }

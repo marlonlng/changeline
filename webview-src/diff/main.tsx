@@ -10,6 +10,7 @@ import { highlightLines, languageFor, renderSegments, Segment } from '../common/
 import { call, on } from '../common/rpc';
 import MarkdownIt from 'markdown-it';
 import { language, plural, t } from '../common/l10n';
+import { LinkedPanes } from '../common/linkedPanes';
 import { measureMarks, OverviewRuler } from '../common/overview';
 
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true });
@@ -60,6 +61,7 @@ function escapeHtml(s: string): string {
 interface Settings {
 	whitespace: WhitespaceMode;
 	sideBySide: boolean;
+	softWrap: boolean;
 	collapse: boolean;
 	highlightWords: boolean;
 	context: number;
@@ -199,10 +201,19 @@ function buildBlocks(m: Model, collapse: boolean, context: number, expanded: Set
 	return blocks;
 }
 
-function renderSideBySide(m: Model, blocks: Block[], d: DiffData, s: Settings, current: number): string {
-	const out: string[] = [];
+interface SidesHtml {
+	left: string;
+	right: string;
+	actions: string;
+	bands: Map<number, string>;
+}
+
+function renderSides(m: Model, blocks: Block[], d: DiffData, s: Settings, current: number): SidesHtml {
+	const left: string[] = [];
+	const right: string[] = [];
+	const actions: string[] = [];
+	const bands = new Map<number, string>();
 	const threads = buildThreads(d.review?.comments);
-	const threadRow = (l: string, r: string) => (l || r ? `<div class="row thread-row"><div class="cell l">${l}</div><div class="gut"></div><div class="cell r">${r}</div></div>` : '');
 	const caps = d.capabilities;
 	const excluded = new Set(d.excluded);
 	const includeEnabled = caps.include && s.whitespace === 'none';
@@ -211,59 +222,65 @@ function renderSideBySide(m: Model, blocks: Block[], d: DiffData, s: Settings, c
 			for (let k = 0; k < b.count; k++) {
 				const o = b.oldStart + k;
 				const n = b.newStart + k;
-				out.push(
-					`<div class="row eq"><div class="cell l"><span class="ln" data-oline="${o + 1}">${o + 1}</span><span class="code">${lineHtml(m, 'old', o)}</span></div><div class="gut"></div><div class="cell r"><span class="ln" data-line="${n + 1}">${n + 1}</span><span class="code">${lineHtml(m, 'new', n)}</span></div></div>`,
-				);
+				left.push(`<div class="line"><span class="ln" data-oline="${o + 1}">${o + 1}</span><span class="code">${lineHtml(m, 'old', o)}</span></div>`);
+				right.push(`<div class="line"><span class="ln" data-line="${n + 1}">${n + 1}</span><span class="code">${lineHtml(m, 'new', n)}</span></div>`);
 				if (threads.size) {
-					out.push(threadRow(threadHtml(threads, 'LEFT', o + 1, o + 1), threadHtml(threads, 'RIGHT', n + 1, n + 1)));
+					left.push(threadHtml(threads, 'LEFT', o + 1, o + 1));
+					right.push(threadHtml(threads, 'RIGHT', n + 1, n + 1));
 				}
 			}
 		} else if (b.type === 'fold') {
-			out.push(`<div class="row fold" data-fold="${b.oldStart}"><span class="codicon codicon-unfold"></span> ${escapeHtml(plural(b.count, '{0} unchanged line', '{0} unchanged lines'))}</div>`);
+			const fold = `<div class="fold" data-fold="${b.oldStart}"><span class="fold-label"><span class="codicon codicon-unfold"></span> ${escapeHtml(plural(b.count, '{0} unchanged line', '{0} unchanged lines'))}</span></div>`;
+			left.push(fold);
+			right.push(fold);
 		} else {
 			const c = m.chunks[b.index];
-			const kind = chunkKind(c);
 			const key = m.keys[b.index];
 			const isExcluded = includeEnabled && (!d.included || excluded.has(key));
-			const left: string[] = [];
+			const cls = `ch ${chunkKind(c)}${isExcluded ? ' excluded' : ''}${b.index === current ? ' current' : ''}`;
+			bands.set(b.index, `band ${chunkKind(c)}${isExcluded ? ' excluded' : ''}${b.index === current ? ' current' : ''}`);
+			const oldLines: string[] = [];
 			for (let i = c.oldStart; i < c.oldEnd; i++) {
-				left.push(`<div class="line"><span class="ln" data-oline="${i + 1}">${i + 1}</span><span class="code">${lineHtml(m, 'old', i, b.index)}</span></div>`);
+				oldLines.push(`<div class="line"><span class="ln" data-oline="${i + 1}">${i + 1}</span><span class="code">${lineHtml(m, 'old', i, b.index)}</span></div>`);
 			}
-			const right: string[] = [];
+			const newLines: string[] = [];
 			for (let i = c.newStart; i < c.newEnd; i++) {
-				right.push(`<div class="line"><span class="ln" data-line="${i + 1}">${i + 1}</span><span class="code">${lineHtml(m, 'new', i, b.index)}</span></div>`);
-			}
-			const actions: string[] = [];
-			if (caps.revert) {
-				actions.push(`<button class="act" data-action="revert" data-key="${key}" title="${escapeHtml(t('Revert'))}">&raquo;</button>`);
-			}
-			if (caps.stage) {
-				actions.push(`<button class="act" data-action="stage" data-key="${key}" title="${escapeHtml(t('Stage this change'))}"><span class="codicon codicon-add"></span></button>`);
-			}
-			if (caps.unstage) {
-				actions.push(`<button class="act" data-action="unstage" data-key="${key}" title="${escapeHtml(t('Unstage this change'))}"><span class="codicon codicon-remove"></span></button>`);
-			}
-			if (includeEnabled) {
-				actions.push(`<input type="checkbox" class="inc" data-key="${key}" title="${escapeHtml(t('Include into commit'))}" ${isExcluded ? '' : 'checked'}>`);
+				newLines.push(`<div class="line"><span class="ln" data-line="${i + 1}">${i + 1}</span><span class="code">${lineHtml(m, 'new', i, b.index)}</span></div>`);
 			}
 			const listName = d.chunkLists?.[key];
-			if (caps.include) {
-				actions.push(`<button class="act move" data-action="move" data-key="${key}" title="${escapeHtml(listName ? t('Move to Another Changelist (now: {0})', listName) : t('Move to Another Changelist'))}"><span class="codicon codicon-arrow-swap"></span></button>`);
-			}
 			const listLabel = listName && listName !== d.fileList ? `<div class="chunk-cl"><span class="codicon codicon-list-unordered"></span> ${escapeHtml(listName)}</div>` : '';
-			out.push(
-				`<div class="row ch ${kind}${isExcluded ? ' excluded' : ''}${b.index === current ? ' current' : ''}${listLabel ? ' other-list' : ''}" data-chunk="${b.index}">` +
-					`<div class="cell l">${left.length ? left.join('') : '<div class="filler"></div>'}</div>` +
-					`<div class="gut">${actions.join('')}</div>` +
-					`<div class="cell r">${listLabel}${right.length ? right.join('') : '<div class="filler"></div>'}</div>` +
-					`</div>`,
-			);
+			left.push(`<div class="${cls}" data-chunk="${b.index}">${oldLines.join('')}</div>`);
+			right.push(`<div class="${cls}${listLabel ? ' other-list' : ''}" data-chunk="${b.index}">${listLabel}${newLines.join('')}</div>`);
 			if (threads.size) {
-				out.push(threadRow(threadHtml(threads, 'LEFT', c.oldStart + 1, c.oldEnd), threadHtml(threads, 'RIGHT', c.newStart + 1, c.newEnd)));
+				left.push(threadHtml(threads, 'LEFT', c.oldStart + 1, c.oldEnd));
+				right.push(threadHtml(threads, 'RIGHT', c.newStart + 1, c.newEnd));
+			}
+			const leftActs: string[] = [];
+			const rightActs: string[] = [];
+			if (caps.revert) {
+				leftActs.push(`<button class="act" data-action="revert" data-key="${key}" title="${escapeHtml(t('Revert'))}">&raquo;</button>`);
+			}
+			if (caps.stage) {
+				leftActs.push(`<button class="act" data-action="stage" data-key="${key}" title="${escapeHtml(t('Stage this change'))}"><span class="codicon codicon-add"></span></button>`);
+			}
+			if (caps.unstage) {
+				leftActs.push(`<button class="act" data-action="unstage" data-key="${key}" title="${escapeHtml(t('Unstage this change'))}"><span class="codicon codicon-remove"></span></button>`);
+			}
+			if (includeEnabled) {
+				rightActs.push(`<input type="checkbox" class="inc" data-key="${key}" title="${escapeHtml(t('Include into commit'))}" ${isExcluded ? '' : 'checked'}>`);
+			}
+			if (caps.include) {
+				rightActs.push(`<button class="act move" data-action="move" data-key="${key}" title="${escapeHtml(listName ? t('Move to Another Changelist (now: {0})', listName) : t('Move to Another Changelist'))}"><span class="codicon codicon-arrow-swap"></span></button>`);
+			}
+			if (leftActs.length) {
+				actions.push(`<div class="acts l" data-acts="${b.index}" data-pane="0">${leftActs.join('')}</div>`);
+			}
+			if (rightActs.length) {
+				actions.push(`<div class="acts r" data-acts="${b.index}" data-pane="1">${rightActs.join('')}</div>`);
 			}
 		}
 	}
-	return out.join('');
+	return { left: `<div class="content">${left.join('')}</div>`, right: `<div class="content">${right.join('')}</div>`, actions: actions.join(''), bands };
 }
 
 function renderUnified(m: Model, blocks: Block[], d: DiffData, s: Settings, current: number): string {
@@ -283,7 +300,7 @@ function renderUnified(m: Model, blocks: Block[], d: DiffData, s: Settings, curr
 				}
 			}
 		} else if (b.type === 'fold') {
-			out.push(`<div class="row fold" data-fold="${b.oldStart}"><span class="codicon codicon-unfold"></span> ${escapeHtml(plural(b.count, '{0} unchanged line', '{0} unchanged lines'))}</div>`);
+			out.push(`<div class="fold" data-fold="${b.oldStart}"><span class="fold-label"><span class="codicon codicon-unfold"></span> ${escapeHtml(plural(b.count, '{0} unchanged line', '{0} unchanged lines'))}</span></div>`);
 		} else {
 			const c = m.chunks[b.index];
 			const key = m.keys[b.index];
@@ -322,7 +339,7 @@ function renderUnified(m: Model, blocks: Block[], d: DiffData, s: Settings, curr
 			);
 		}
 	}
-	return out.join('');
+	return `<div class="content">${out.join('')}</div>`;
 }
 
 function App() {
@@ -332,6 +349,11 @@ function App() {
 	const [current, setCurrent] = useState(0);
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());
 	const bodyRef = useRef<HTMLDivElement>(null);
+	const leftRef = useRef<HTMLDivElement>(null);
+	const svgRef = useRef<SVGSVGElement>(null);
+	const actsRef = useRef<HTMLDivElement>(null);
+	const linksRef = useRef<LinkedPanes | undefined>(undefined);
+	const bandsRef = useRef<Map<number, string>>(new Map());
 	const focusRef = useRef<LineChange | undefined>(undefined);
 	const [busy, setBusy] = useState(false);
 	const [composer, setComposer] = useState<{ line: number; side: 'LEFT' | 'RIGHT'; inReplyTo?: string; text: string } | null>(null);
@@ -370,16 +392,64 @@ function App() {
 		if (!model || !data || !s) {
 			return '';
 		}
-		return s.sideBySide ? renderSideBySide(model, blocks, data, s, current) : renderUnified(model, blocks, data, s, current);
+		return s.sideBySide ? renderSides(model, blocks, data, s, current) : renderUnified(model, blocks, data, s, current);
 	}, [model, blocks, data, s?.sideBySide, current]);
 
-	useEffect(() => {
-		if (bodyRef.current) {
-			const top = bodyRef.current.scrollTop;
-			bodyRef.current.innerHTML = html;
-			bodyRef.current.scrollTop = top;
+	const placeActions = () => {
+		const links = linksRef.current;
+		const layer = actsRef.current;
+		if (!links || !layer) {
+			return;
 		}
+		for (const el of layer.querySelectorAll<HTMLElement>('.acts')) {
+			const box = links.visibleBox(Number(el.dataset.pane), Number(el.dataset.acts));
+			const visible = !!box && box.top + 24 > 0 && box.top < layer.clientHeight;
+			el.style.display = visible ? '' : 'none';
+			if (box) {
+				el.style.top = `${Math.max(0, box.top)}px`;
+			}
+		}
+	};
+
+	useEffect(() => {
+		const master = bodyRef.current;
+		if (!master) {
+			return;
+		}
+		const top = master.scrollTop;
+		if (typeof html === 'string') {
+			master.innerHTML = html;
+		} else {
+			master.innerHTML = html.right;
+			if (leftRef.current) {
+				leftRef.current.innerHTML = html.left;
+			}
+			if (actsRef.current) {
+				actsRef.current.innerHTML = html.actions;
+			}
+			bandsRef.current = html.bands;
+		}
+		master.scrollTop = top;
+		linksRef.current?.refresh();
 	}, [html]);
+
+	const sideBySide = !!s?.sideBySide;
+	const loaded = !!data && !!s;
+	useEffect(() => {
+		const master = bodyRef.current;
+		if (!master) {
+			return;
+		}
+		const panes = sideBySide && leftRef.current ? [leftRef.current, master] : [master];
+		const dividers = sideBySide && svgRef.current ? [svgRef.current] : [];
+		const links = new LinkedPanes(panes, dividers, (_k, i) => bandsRef.current.get(i), placeActions);
+		linksRef.current = links;
+		links.refresh();
+		return () => {
+			links.dispose();
+			linksRef.current = undefined;
+		};
+	}, [sideBySide, loaded]);
 
 	const update = (patch: Partial<Settings>) => {
 		const next = { ...s!, ...patch };
@@ -399,10 +469,7 @@ function App() {
 	};
 
 	const scrollToChunk = (i: number) => {
-		const el = bodyRef.current?.querySelector(`[data-chunk="${i}"]`) as HTMLElement | null;
-		if (el && bodyRef.current) {
-			bodyRef.current.scrollTop = el.offsetTop - bodyRef.current.clientHeight / 3;
-		}
+		linksRef.current?.reveal(i);
 	};
 
 	const go = (delta: number) => {
@@ -516,7 +583,7 @@ function App() {
 
 	const onBodyDblClick = (e: MouseEvent) => {
 		const element = e.target as HTMLElement;
-		const line = element.closest('.line, .row.eq, .u-line') as HTMLElement | null;
+		const line = element.closest('.line, .u-line') as HTMLElement | null;
 		const ln = line?.querySelector('[data-line]') as HTMLElement | null;
 		if (ln && data?.capabilities.source) {
 			void call('openSource', { line: Number(ln.dataset.line) });
@@ -570,6 +637,7 @@ function App() {
 				</select>
 				<IconButton icon="whole-word" title={t('Highlight words')} active={s.highlightWords} onClick={() => update({ highlightWords: !s.highlightWords })} />
 				<IconButton icon="fold" title={t('Collapse unchanged fragments')} active={s.collapse} onClick={() => update({ collapse: !s.collapse })} />
+				<IconButton icon="word-wrap" title={t('Use soft wraps')} active={s.softWrap} onClick={() => update({ softWrap: !s.softWrap })} />
 				<span class="spacer" />
 				{data.capabilities.include && (
 					<Checkbox checked={data.included} onChange={(v) => act('includeFile', { included: v })} label={t('Include into commit')} />
@@ -608,14 +676,19 @@ function App() {
 			) : identical ? (
 				<div class="jg-empty">{eolOnly ? t('Contents are identical (only line separators differ)') : data.leftMissing && data.rightMissing ? t('No content') : t('Contents are identical')}</div>
 			) : null}
-			<div class="diff-scroll" style={{ display: data.binary || data.tooLarge || identical ? 'none' : undefined }}>
-				<div
-					ref={bodyRef}
-					class={`diff-body jg-code ${s.sideBySide ? 'side' : 'unified'}${busy ? ' busy' : ''}${data.review ? ' review' : ''}`}
-					style={{ '--lnw': lnWidth } as any}
-					onClick={onBodyClick as any}
-					onDblClick={onBodyDblClick as any}
-				/>
+			<div class="diff-scroll" style={{ display: data.binary || data.tooLarge || identical ? 'none' : undefined }} onClick={onBodyClick as any} onDblClick={onBodyDblClick as any}>
+				{s.sideBySide ? (
+					<div class={`diff-body side jg-code${busy ? ' busy' : ''}${data.review ? ' review' : ''}${s.softWrap ? ' wrap' : ''}`} style={{ '--lnw': lnWidth } as any}>
+						<div ref={leftRef} class="pane l" tabIndex={0} />
+						<div class="divider">
+							<svg ref={svgRef} class="bands" />
+							<div ref={actsRef} class="acts-layer" />
+						</div>
+						<div ref={bodyRef} class="pane r" tabIndex={0} />
+					</div>
+				) : (
+					<div ref={bodyRef} class={`diff-body unified pane jg-code${busy ? ' busy' : ''}${data.review ? ' review' : ''}${s.softWrap ? ' wrap' : ''}`} style={{ '--lnw': lnWidth } as any} tabIndex={0} />
+				)}
 				<OverviewRuler
 					target={bodyRef}
 					revision={html}

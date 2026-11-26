@@ -56,39 +56,39 @@ test('diff viewer: highlighting, word diff, whitespace, collapse, F7, unified, i
 	await vscode.commands.executeCommand('changeline.changes.open', node);
 	const w = await webview('Diff: code.ts');
 	await w.waitFor(
-		`document.querySelectorAll('.diff-body.side .row.ch').length === 3`,
+		`document.querySelectorAll('.diff-body.side .pane.r .ch').length === 3`,
 		'three chunks side by side',
 		10000,
-		`({ rows: document.querySelectorAll('.row.ch').length, body: document.querySelector('.diff-body')?.className, counter: document.querySelector('.jg-toolbar .counter:last-of-type')?.textContent, ws: document.querySelector('select[title="Whitespace"]')?.value, lines: [...document.querySelectorAll('.row.ch .cell.r .code')].map((e) => e.textContent.slice(0, 40)) })`,
+		`({ rows: document.querySelectorAll('.pane.r .ch').length, body: document.querySelector('.diff-body')?.className, counter: document.querySelector('.jg-toolbar .counter:last-of-type')?.textContent, ws: document.querySelector('select[title="Whitespace"]')?.value, lines: [...document.querySelectorAll('.pane.r .ch .code')].map((e) => e.textContent.slice(0, 40)) })`,
 	);
 	assert.equal(await w.text('.jg-toolbar .counter:last-of-type'), '3 differences');
 	assert.ok((await w.count('.diff-body .hl-keyword')) > 0, 'syntax highlighting');
-	assert.ok((await w.count('.row.ch .wd')) > 0, 'changed words are highlighted');
-	const wordText = await w.eval<string[]>(`[...document.querySelectorAll('.row.ch[data-chunk="0"] .wd')].map((e) => e.textContent)`);
+	assert.ok((await w.count('.diff-body .ch .wd')) > 0, 'changed words are highlighted');
+	const wordText = await w.eval<string[]>(`[...document.querySelectorAll('.diff-body .ch[data-chunk="0"] .wd')].map((e) => e.textContent)`);
 	assert.deepEqual(wordText, ['Hello', 'Hi']);
 
 	await w.click('button[title="Highlight words"]');
-	await w.waitFor(`document.querySelectorAll('.row.ch .wd').length === 0`, 'word highlighting off');
+	await w.waitFor(`document.querySelectorAll('.diff-body .ch .wd').length === 0`, 'word highlighting off');
 	await w.click('button[title="Highlight words"]');
-	await w.waitFor(`document.querySelectorAll('.row.ch .wd').length > 0`, 'word highlighting on');
+	await w.waitFor(`document.querySelectorAll('.diff-body .ch .wd').length > 0`, 'word highlighting on');
 
 	await w.select('select[title="Whitespace"]', 'all');
-	await w.waitFor(`document.querySelectorAll('.row.ch').length === 2`, 'whitespace-only change ignored');
+	await w.waitFor(`document.querySelectorAll('.pane.r .ch').length === 2`, 'whitespace-only change ignored');
 	await w.select('select[title="Whitespace"]', 'none');
-	await w.waitFor(`document.querySelectorAll('.row.ch').length === 3`, 'whitespace change shown again');
+	await w.waitFor(`document.querySelectorAll('.pane.r .ch').length === 3`, 'whitespace change shown again');
 
-	const collapsed = async () => w.count('.row.fold');
+	const collapsed = async () => w.count('.pane.r .fold');
 	if ((await collapsed()) === 0) {
 		await w.click('button[title="Collapse unchanged fragments"]');
 	}
-	await w.waitFor(`document.querySelectorAll('.row.fold').length > 0`, 'unchanged fragments collapsed');
+	await w.waitFor(`document.querySelectorAll('.pane.r .fold').length > 0`, 'unchanged fragments collapsed');
 	const folds = await collapsed();
-	await w.click('.row.fold');
-	await w.waitFor(`document.querySelectorAll('.row.fold').length === ${folds - 1}`, 'fold expanded on click');
+	await w.click('.pane.r .fold');
+	await w.waitFor(`document.querySelectorAll('.pane.r .fold').length === ${folds - 1}`, 'fold expanded on click');
 	await w.click('button[title="Collapse unchanged fragments"]');
-	await w.waitFor(`document.querySelectorAll('.row.fold').length === 0`, 'collapse off');
+	await w.waitFor(`document.querySelectorAll('.pane.r .fold').length === 0`, 'collapse off');
 
-	const current = () => w.eval<string>(`document.querySelector('.row.ch.current')?.dataset.chunk`);
+	const current = () => w.eval<string>(`document.querySelector('.pane.r .ch.current')?.dataset.chunk`);
 	const first = Number(await current());
 	await w.key('F7');
 	await waitFor(async () => Number(await current()) === (first + 1) % 3, 'F7 moves to the next difference');
@@ -99,27 +99,35 @@ test('diff viewer: highlighting, word diff, whitespace, collapse, F7, unified, i
 	const marks = await w.eval<{ cls: string; top: number }[]>(`[...document.querySelectorAll('.jg-overview .mark')].map((m) => ({ cls: m.className, top: m.getBoundingClientRect().top }))`);
 	assert.ok(marks.every((m) => m.cls.includes('mod')), JSON.stringify(marks));
 	assert.ok(marks[0].top < marks[1].top && marks[1].top < marks[2].top, `marks in the order of the changes: ${JSON.stringify(marks)}`);
-	assert.equal(await w.eval<number>(`(() => { const b = document.querySelector('.diff-body'); return b.offsetWidth - b.clientWidth; })()`), 0, 'the overview replaces the native scrollbar');
+	assert.equal(await w.eval<number>(`(() => { const b = document.querySelector('.pane.r'); return b.offsetWidth - b.clientWidth; })()`), 0, 'the overview replaces the native scrollbar');
 	await w.eval(`document.querySelector('.jg-overview .mark[data-mark="2"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }))`);
-	await w.waitFor(`document.querySelector('.row.ch.current')?.dataset.chunk === '2' && document.querySelector('.jg-overview .mark.current')?.dataset.mark === '2'`, 'clicking a mark selects its change');
+	await w.waitFor(`document.querySelector('.pane.r .ch.current')?.dataset.chunk === '2' && document.querySelector('.jg-overview .mark.current')?.dataset.mark === '2'`, 'clicking a mark selects its change');
+	await w.waitFor(`document.querySelector('.diff-body .bands path.current') !== null`, 'a band in the divider connects the selected change on both sides');
+	const scrolled = await w.eval<{ left: number; right: number }>(`({ left: document.querySelector('.pane.l').scrollTop, right: document.querySelector('.pane.r').scrollTop })`);
+	assert.ok(scrolled.right > 0 && Math.abs(scrolled.left - scrolled.right) < 2, `both sides scroll together: ${JSON.stringify(scrolled)}`);
+	assert.equal(await w.eval<string>(`getComputedStyle(document.querySelector('.pane.r .code')).whiteSpace`), 'pre', 'long lines scroll instead of wrapping');
+	await w.click('button[title="Use soft wraps"]');
+	await w.waitFor(`document.querySelector('.diff-body.side.wrap') !== null && getComputedStyle(document.querySelector('.pane.r .code')).whiteSpace === 'pre-wrap'`, 'soft wraps on');
+	await w.click('button[title="Use soft wraps"]');
+	await w.waitFor(`document.querySelector('.diff-body.side.wrap') === null`, 'soft wraps off');
 
 	await w.select('select[title="Viewer"]', 'unified');
 	await w.waitFor(`document.querySelectorAll('.diff-body.unified .u-chunk').length === 3`, 'unified viewer');
 	assert.ok((await w.count('.u-line.del')) >= 3 && (await w.count('.u-line.ins')) >= 3);
 	await w.waitFor(`document.querySelectorAll('.jg-overview .mark.mod').length === 3`, 'marks in the unified viewer');
 	await w.select('select[title="Viewer"]', 'side');
-	await w.waitFor(`document.querySelectorAll('.diff-body.side .row.ch').length === 3`, 'back to side by side');
+	await w.waitFor(`document.querySelectorAll('.diff-body.side .pane.r .ch').length === 3`, 'back to side by side');
 
 	const cl = api._test.services().changelists;
-	await w.click('.row.ch[data-chunk="2"] input.inc');
+	await w.click('.acts[data-acts="2"] input.inc');
 	await waitFor(() => cl.getExcludedChunks(node.abs).size === 1, 'chunk excluded on the host');
-	await w.waitFor(`document.querySelector('.row.ch[data-chunk="2"]').classList.contains('excluded')`, 'chunk shown as excluded');
-	await w.click('.row.ch[data-chunk="2"] input.inc');
+	await w.waitFor(`document.querySelector('.pane.r .ch[data-chunk="2"]').classList.contains('excluded')`, 'chunk shown as excluded');
+	await w.click('.acts[data-acts="2"] input.inc');
 	await waitFor(() => cl.getExcludedChunks(node.abs).size === 0, 'chunk included again');
 
-	await w.click('.row.ch[data-chunk="0"] [data-action="revert"]');
+	await w.click('.acts[data-acts="0"] [data-action="revert"]');
 	await waitFor(() => read('src/code.ts').includes('"Hello "'), 'first chunk reverted on disk');
-	await w.waitFor(`document.querySelectorAll('.row.ch').length === 2`, 'two chunks left');
+	await w.waitFor(`document.querySelectorAll('.pane.r .ch').length === 2`, 'two chunks left');
 	await w.waitFor(`document.querySelectorAll('.jg-overview .mark').length === 2`, 'marks follow the remaining changes');
 	assert.ok(read('src/code.ts').includes('value35 = 3500'), 'other chunks untouched');
 	await closeAll();
@@ -130,7 +138,7 @@ test('diff viewer: Show Diff in the change popup of the editor selects that chan
 	const at = (line: number) => ({ originalStartLineNumber: line, originalEndLineNumber: line, modifiedStartLineNumber: line, modifiedEndLineNumber: line });
 	await vscode.commands.executeCommand('changeline.lineStatus.showDiff', uri, [at(21), at(36)], 1);
 	const w = await webview('Diff: code.ts');
-	await w.waitFor(`document.querySelectorAll('.row.ch').length === 2 && document.querySelector('.row.ch.current')?.dataset.chunk === '1'`, 'the change from the popup is selected');
+	await w.waitFor(`document.querySelectorAll('.pane.r .ch').length === 2 && document.querySelector('.pane.r .ch.current')?.dataset.chunk === '1'`, 'the change from the popup is selected');
 	await closeAll();
 });
 

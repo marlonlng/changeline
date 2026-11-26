@@ -207,6 +207,7 @@
 	"config.diff.viewer.jetbrains": "JetBrains style viewer with chunk rollback and partial commit",
 	"config.diff.viewer.native": "VS Code diff editor",
 	"config.diff.ignoreWhitespace": "Default whitespace handling of the diff viewer.",
+	"config.diff.softWraps": "Wrap long lines in the diff viewer instead of scrolling horizontally (*Use soft wraps* in JetBrains IDEs).",
 	"config.diff.sideBySide": "Use the side-by-side viewer by default (otherwise unified).",
 	"config.diff.collapseUnchanged": "Collapse unchanged fragments by default.",
 	"config.diff.contextLines": "Context lines kept around changes when unchanged fragments are collapsed.",

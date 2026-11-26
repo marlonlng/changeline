@@ -2572,6 +2572,11 @@
 						"all"
 					]
 				},
+				"changeline.diff.softWraps": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%config.diff.softWraps%"
+				},
 				"changeline.diff.sideBySide": {
 					"type": "boolean",
 					"default": true,

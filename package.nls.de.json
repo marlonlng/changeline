@@ -250,5 +250,6 @@
 	"command.lineStatus.rollback": "Zeilen-Rollback",
 	"command.lineStatus.showDiff": "Diff anzeigen",
 	"command.lineStatus.copy": "Kopieren",
-	"command.lineStatus.moveToChangelist": "In andere Changelist verschieben…"
+	"command.lineStatus.moveToChangelist": "In andere Changelist verschieben…",
+	"config.diff.softWraps": "Lange Zeilen im Diff-Viewer umbrechen statt horizontal zu scrollen (*Use soft wraps* in JetBrains-IDEs)."
 }
