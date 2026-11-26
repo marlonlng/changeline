@@ -432,6 +432,13 @@ select {
 	color: var(--vscode-menu-selectionForeground, var(--jg-selected-fg));
 }
 
+.jg-menu .heading {
+	padding: 4px 16px 2px;
+	font-size: 0.85em;
+	color: var(--jg-muted);
+	cursor: default;
+}
+
 .jg-menu .sep {
 	height: 1px;
 	margin: 4px 0;

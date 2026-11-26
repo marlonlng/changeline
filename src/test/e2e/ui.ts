@@ -344,10 +344,10 @@ test('log: graph, labels, details, merge parents, text filter, highlight, collap
 	await v.waitFor(`document.querySelectorAll('.commit-row').length === ${all}`, 'filter cleared');
 
 	await v.click('button[title="View Options"]');
-	await v.clickText('.jg-menu .item', 'Highlight Current Branch');
+	await v.clickText('.jg-menu .item', 'Current Branch');
 	await v.waitFor(`document.querySelectorAll('.commit-row.dim').length > 0`, 'commits outside the current branch dimmed');
 	await v.click('button[title="View Options"]');
-	await v.clickText('.jg-menu .item', 'Highlight Current Branch');
+	await v.clickText('.jg-menu .item', 'Current Branch');
 	await v.waitFor(`document.querySelectorAll('.commit-row.dim').length === 0`, 'highlight off');
 	await v.click('button[title="View Options"]');
 	await v.clickText('.jg-menu .item', 'Collapse Linear Branches');
@@ -355,12 +355,31 @@ test('log: graph, labels, details, merge parents, text filter, highlight, collap
 	await v.click('.collapsed-marker');
 	await v.waitFor(`document.querySelectorAll('.commit-row').length === ${all}`, 'run expanded');
 	await v.click('button[title="View Options"]');
-	await v.clickText('.jg-menu .item', 'Collapse Linear Branches');
+	await v.clickText('.jg-menu .item', 'Expand Linear Branches');
+
+	const merges = () => v.eval<number>(`[...document.querySelectorAll('.commit-row .text')].filter((e) => e.textContent.startsWith('Merge branch')).length`);
+	assert.ok((await merges()) > 0);
+	await v.click('button[title="View Options"]');
+	await v.clickText('.jg-menu .item', 'Merge Commits');
+	await v.waitFor(`[...document.querySelectorAll('.commit-row.dim .text')].some((e) => e.textContent.startsWith('Merge branch'))`, 'merge commits highlighted (dimmed)');
+	await v.click('button[title="View Options"]');
+	await v.clickText('.jg-menu .item', 'Merge Commits');
+	await v.click('button[title="View Options"]');
+	await v.clickText('.jg-menu .item', 'No Merges');
+	await v.waitFor(`![...document.querySelectorAll('.commit-row .text')].some((e) => e.textContent.startsWith('Merge branch'))`, 'merge commits hidden');
+	await v.click('button[title="View Options"]');
+	await v.clickText('.jg-menu .item', 'No Merges');
+	await v.waitFor(`document.querySelectorAll('.commit-row').length === ${all}`, 'merge commits back');
+	await v.click('button[title="View Options"]');
+	await v.clickText('.jg-menu .item', 'References on the Left');
+	await v.waitFor(`!!document.querySelector('.labels.left')`, 'references on the left');
+	await v.click('button[title="View Options"]');
+	await v.clickText('.jg-menu .item', 'References on the Left');
 
 	await repo().runOp(['tag', 'ui-tag']);
 	await v.waitFor(`!!document.querySelector('.ref-label.tag.icon-only[title="Tag ui-tag"]')`, 'tags show as icons without names by default');
 	await v.click('button[title="View Options"]');
-	await v.clickText('.jg-menu .item', 'Show Tag Names');
+	await v.clickText('.jg-menu .item', 'Tag Names');
 	await v.waitFor(`[...document.querySelectorAll('.ref-label.tag')].some((e) => e.textContent.trim() === 'ui-tag')`, 'tag names shown');
 	await v.click('button[title="View Options"]');
 	await v.clickText('.jg-menu .item', 'Compact References View');
@@ -368,11 +387,11 @@ test('log: graph, labels, details, merge parents, text filter, highlight, collap
 	await v.click('button[title="View Options"]');
 	await v.clickText('.jg-menu .item', 'Compact References View');
 	await v.click('button[title="View Options"]');
-	await v.clickText('.jg-menu .item', 'IntelliSort');
-	await v.waitFor(`document.querySelectorAll('.commit-row').length === ${all}`, 'reloaded in IntelliSort order');
+	await v.clickText('.jg-menu .item', 'Sort Topologically');
+	await v.waitFor(`document.querySelectorAll('.commit-row').length === ${all}`, 'reloaded in topological order');
 	await v.click('button[title="View Options"]');
-	await v.waitFor(`[...document.querySelectorAll('.jg-menu .item')].some((e) => e.textContent.trim().startsWith('✓') && e.textContent.includes('IntelliSort'))`, 'IntelliSort checked');
-	await v.clickText('.jg-menu .item', 'IntelliSort');
+	await v.waitFor(`[...document.querySelectorAll('.jg-menu .item')].some((e) => e.textContent.trim().startsWith('✓') && e.textContent.includes('Sort Topologically'))`, 'topological order checked');
+	await v.clickText('.jg-menu .item', 'Sort by Commit Date');
 	await repo().runOp(['tag', '-d', 'ui-tag']);
 	await v.waitFor(`!document.querySelector('.ref-label.tag[title="Tag ui-tag"]')`, 'tag gone after the refresh');
 
@@ -382,6 +401,18 @@ test('log: graph, labels, details, merge parents, text filter, highlight, collap
 	const ctx = await v.eval<{ webviewSection: string; hash: string }>(`JSON.parse(document.querySelector('.commit-row.selected').dataset.vscodeContext)`);
 	assert.equal(ctx.webviewSection, 'commit');
 	assert.equal(ctx.hash, featureTip);
+});
+
+test('log: highlight not cherry-picked commits of a filtered branch', async () => {
+	await vscode.commands.executeCommand('changeline.showLogInNewTab', { repo: repo().root, branches: ['feature'] });
+	const v = await webview('Log: feature');
+	await v.waitFor(`document.querySelectorAll('.commit-row').length > 1`, 'feature log');
+	await v.click('button[title="View Options"]');
+	await v.clickText('.jg-menu .item', 'Not Cherry-Picked Commits');
+	await v.waitFor(`[...document.querySelectorAll('.commit-row.not-picked .text')].map((e) => e.textContent).join() === 'feature change' && document.querySelectorAll('.commit-row.picked').length > 0`, 'the commit missing in the current branch stands out');
+	await v.click('button[title="View Options"]');
+	await v.clickText('.jg-menu .item', 'Not Cherry-Picked Commits');
+	await closeAll();
 });
 
 test('dialogs: New Branch validates the name and creates the branch without checkout', async () => {

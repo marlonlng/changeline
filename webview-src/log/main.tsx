@@ -22,7 +22,15 @@ interface ViewOptions {
 	highlightCurrent: boolean;
 	highlightMine: boolean;
 	collapseLinear: boolean;
-	intelliSort?: boolean;
+	topo?: boolean;
+	commitTimestamp: boolean;
+	refsLeft: boolean;
+	showAuthorCol: boolean;
+	showDateCol: boolean;
+	highlightMerges: boolean;
+	highlightNotPicked: boolean;
+	firstParent: boolean;
+	noMerges: boolean;
 	longEdges: boolean;
 	compactRefs: boolean;
 	tagNames: boolean;
@@ -134,7 +142,15 @@ function App() {
 		highlightCurrent: saved.highlightCurrent ?? false,
 		highlightMine: saved.highlightMine ?? false,
 		collapseLinear: saved.collapseLinear ?? false,
-		intelliSort: saved.intelliSort,
+		topo: saved.topo ?? (saved as { intelliSort?: boolean }).intelliSort,
+		commitTimestamp: saved.commitTimestamp ?? false,
+		refsLeft: saved.refsLeft ?? false,
+		showAuthorCol: saved.showAuthorCol ?? true,
+		showDateCol: saved.showDateCol ?? true,
+		highlightMerges: saved.highlightMerges ?? false,
+		highlightNotPicked: saved.highlightNotPicked ?? false,
+		firstParent: saved.firstParent ?? false,
+		noMerges: saved.noMerges ?? false,
 		longEdges: saved.longEdges ?? false,
 		compactRefs: saved.compactRefs ?? false,
 		tagNames: saved.tagNames ?? false,
@@ -162,9 +178,9 @@ function App() {
 
 	const isHistory = init?.scope.kind === 'history';
 	const pageSize = init?.settings.pageSize ?? 1000;
-	const intelliSort = opts.intelliSort ?? init?.settings.order === 'topo';
-	const orderRef = useRef<'date' | 'topo' | undefined>(undefined);
-	orderRef.current = opts.intelliSort === undefined ? undefined : opts.intelliSort ? 'topo' : 'date';
+	const topo = opts.topo ?? init?.settings.order === 'topo';
+	const orderRef = useRef<{ order?: 'date' | 'topo'; firstParent: boolean; noMerges: boolean }>({ firstParent: false, noMerges: false });
+	orderRef.current = { order: opts.topo === undefined ? undefined : opts.topo ? 'topo' : 'date', firstParent: opts.firstParent, noMerges: opts.noMerges };
 
 	const setOpt = (patch: Partial<ViewOptions>) => {
 		const next = { ...opts, ...patch };
@@ -176,7 +192,7 @@ function App() {
 		const token = ++loadToken.current;
 		setLoading(true);
 		try {
-			const res = await call<{ commits: CommitInfo[]; hasMore: boolean }>('load', { filters: f, skip: append ? current.length : 0, limit: pageSize, order: orderRef.current });
+			const res = await call<{ commits: CommitInfo[]; hasMore: boolean }>('load', { filters: f, skip: append ? current.length : 0, limit: pageSize, ...orderRef.current });
 			if (token !== loadToken.current) {
 				return;
 			}
@@ -281,6 +297,14 @@ function App() {
 	const visibleRef = useRef(commits);
 	visibleRef.current = commits;
 	const inHead = useMemo(() => reachableFrom(refs.head, commits), [refs.head, commits]);
+	const [notPicked, setNotPicked] = useState<Set<string> | undefined>(undefined);
+	const pickedBranch = opts.highlightNotPicked && filters.branches?.length === 1 ? filters.branches[0] : undefined;
+	useEffect(() => {
+		setNotPicked(undefined);
+		if (pickedBranch) {
+			call<string[]>('notCherryPicked', { branch: pickedBranch }).then((list) => setNotPicked(new Set(list)), () => undefined);
+		}
+	}, [pickedBranch, refs.head]);
 	const authors = useMemo(() => [...new Set(commits.map((c) => c.author))], [commits]);
 	const index = useMemo(() => new Map(commits.map((c, i) => [c.hash, i])), [commits]);
 
@@ -493,12 +517,27 @@ function App() {
 	const showPreview = opts.showDetails && opts.showDiffPreview;
 	const pw = Math.min(previewWidth, Math.max(240, totalWidth * 0.45));
 	const centerWidth = totalWidth - (showBranches ? bw : 0) - (opts.showDetails ? dw : 0) - (showPreview ? pw : 0);
-	const showAuthor = centerWidth > 470;
-	const showDate = centerWidth > 360;
+	const showAuthor = opts.showAuthorCol && centerWidth > 470;
+	const showDate = opts.showDateCol && centerWidth > 360;
 	const showHashCol = opts.showHash && centerWidth > 600;
 	const compact = centerWidth < 640;
 	const gridCols = `minmax(0, 1fr)${showAuthor ? ` ${opts.colAuthor}px` : ''}${showDate ? ` ${opts.colDate}px` : ''}${showHashCol ? ` ${opts.colHash}px` : ''}`;
 	const branchLabel = filters.branches?.length ? filters.branches.join(', ') : undefined;
+
+	const labelsOf = (rowLabels: RefLabel[] | undefined) =>
+		rowLabels && (
+			<span class={`labels${opts.compactRefs ? ' compact' : ''}${opts.refsLeft ? ' left' : ''}`}>
+				{rowLabels.map((l) => {
+					const named = l.kind === 'tag' ? opts.tagNames && !opts.compactRefs : !opts.compactRefs || l.kind === 'current' || l.kind === 'head';
+					return (
+						<span class={`ref-label ${l.kind}${named ? '' : ' icon-only'}`} title={l.title}>
+							<Icon name={l.kind === 'tag' ? 'tag' : l.kind === 'head' ? 'target' : 'git-branch'} />
+							{named && l.text}
+						</span>
+					);
+				})}
+			</span>
+		);
 
 	return (
 		<div class="log-view" ref={rootRef}>
@@ -627,7 +666,6 @@ function App() {
 							}}
 						/>
 						<IconButton icon="layout-sidebar-right" title={t('Show Details')} active={opts.showDetails} onClick={() => setOpt({ showDetails: !opts.showDetails })} />
-						<IconButton icon="diff" title={t('Show Diff Preview')} active={opts.showDiffPreview} onClick={() => setOpt({ showDiffPreview: !opts.showDiffPreview, showDetails: true })} />
 					</div>
 					{error && <div class="banner jg-error">{error}</div>}
 					<div class="table-header" style={{ gridTemplateColumns: gridCols }}>
@@ -660,6 +698,8 @@ function App() {
 								const isSel = selectedSet.has(c.hash);
 								const dim = opts.highlightCurrent && refs.head !== undefined && !inHead.has(c.hash);
 								const mine = opts.highlightMine && !!me && c.author === me;
+								const mergeDim = opts.highlightMerges && c.parents.length > 1;
+								const picked = notPicked ? (notPicked.has(c.hash) ? ' not-picked' : ' picked') : '';
 								const rowLabels = labels.get(c.hash);
 								const ctx = JSON.stringify({
 									webviewSection: 'commit',
@@ -676,7 +716,7 @@ function App() {
 								return (
 									<div
 										key={c.hash}
-										class={`commit-row${isSel ? ' selected' : ''}${dim ? ' dim' : ''}${mine ? ' mine' : ''}`}
+										class={`commit-row${isSel ? ' selected' : ''}${dim || mergeDim ? ' dim' : ''}${mine ? ' mine' : ''}${picked}`}
 										style={{ top: `${i * ROW_HEIGHT}px`, gridTemplateColumns: gridCols }}
 										data-vscode-context={ctx}
 										onMouseDown={(e) => {
@@ -692,6 +732,7 @@ function App() {
 										<div class="td subject">
 											{row && <GraphCell row={row} isHead={c.hash === refs.head} dimmed={dim} />}
 											{!row && <span class="no-graph-dot" />}
+											{opts.refsLeft && labelsOf(rowLabels)}
 											<span class="text">{c.subject}</span>
 											{collapsed?.counts.has(c.hash) && (
 												<button
@@ -705,22 +746,10 @@ function App() {
 													+{collapsed.counts.get(c.hash)}
 												</button>
 											)}
-											{rowLabels && (
-												<span class={`labels${opts.compactRefs ? ' compact' : ''}`}>
-													{rowLabels.map((l) => {
-														const named = l.kind === 'tag' ? opts.tagNames && !opts.compactRefs : !opts.compactRefs || l.kind === 'current' || l.kind === 'head';
-														return (
-															<span class={`ref-label ${l.kind}${named ? '' : ' icon-only'}`} title={l.title}>
-																<Icon name={l.kind === 'tag' ? 'tag' : l.kind === 'head' ? 'target' : 'git-branch'} />
-																{named && l.text}
-															</span>
-														);
-													})}
-												</span>
-											)}
+											{!opts.refsLeft && labelsOf(rowLabels)}
 										</div>
 										{showAuthor && <div class="td author">{c.author}</div>}
-										{showDate && <div class="td date">{formatDate(c.authorDate, opts.dateFormat)}</div>}
+										{showDate && <div class="td date">{formatDate(opts.commitTimestamp ? c.commitDate : c.authorDate, opts.dateFormat)}</div>}
 										{showHashCol && <div class="td hash">{c.hash.slice(0, 8)}</div>}
 									</div>
 								);
@@ -755,6 +784,8 @@ function App() {
 								}}
 								onFileSelect={opts.showDiffPreview ? setPreviewFile : undefined}
 								issueRules={init.issueRules}
+								diffPreview={opts.showDiffPreview}
+								onToggleDiffPreview={() => setOpt({ showDiffPreview: !opts.showDiffPreview })}
 							/>
 						</div>
 						{showPreview && (
@@ -774,24 +805,50 @@ function App() {
 					y={menu.y}
 					onClose={() => setMenu(null)}
 					items={[
-						{ label: check(intelliSort, t('IntelliSort')), onClick: () => {
-							orderRef.current = intelliSort ? 'date' : 'topo';
-							setOpt({ intelliSort: !intelliSort });
+						{ heading: t('Show') },
+						{ label: check(opts.commitTimestamp, t('Commit Timestamp')), onClick: () => setOpt({ commitTimestamp: !opts.commitTimestamp }) },
+						{ label: check(opts.tagNames, t('Tag Names')), onClick: () => setOpt({ tagNames: !opts.tagNames }) },
+						{ label: check(opts.compactRefs, t('Compact References View')), onClick: () => setOpt({ compactRefs: !opts.compactRefs }) },
+						{ label: check(opts.refsLeft, t('References on the Left')), onClick: () => setOpt({ refsLeft: !opts.refsLeft }) },
+						{ label: check(opts.showAuthorCol, t('Author Column')), onClick: () => setOpt({ showAuthorCol: !opts.showAuthorCol }) },
+						{ label: check(opts.showDateCol, t('Date Column')), onClick: () => setOpt({ showDateCol: !opts.showDateCol }) },
+						{ label: check(opts.showHash, t('Hash Column')), onClick: () => setOpt({ showHash: !opts.showHash }) },
+						{ label: check(opts.dateFormat === 'relative', t('Relative Dates')), onClick: () => setOpt({ dateFormat: opts.dateFormat === 'relative' ? 'absolute' : 'relative' }) },
+						{ heading: t('Highlight') },
+						{ label: check(opts.highlightMine, t('My Commits')), onClick: () => setOpt({ highlightMine: !opts.highlightMine }) },
+						{ label: check(opts.highlightMerges, t('Merge Commits')), onClick: () => setOpt({ highlightMerges: !opts.highlightMerges }) },
+						{ label: check(opts.highlightCurrent, t('Current Branch')), onClick: () => setOpt({ highlightCurrent: !opts.highlightCurrent }) },
+						{ label: check(opts.highlightNotPicked, t('Not Cherry-Picked Commits')), onClick: () => setOpt({ highlightNotPicked: !opts.highlightNotPicked }) },
+						{ heading: t('Graph Options') },
+						{ label: check(!topo, t('Sort by Commit Date')), onClick: () => {
+							orderRef.current = { ...orderRef.current, order: 'date' };
+							setOpt({ topo: false });
 							void load(filters, false, []);
 						} },
-						{ label: check(opts.longEdges, t('Show Long Edges')), onClick: () => setOpt({ longEdges: !opts.longEdges }) },
-						{ label: check(opts.collapseLinear, t('Collapse Linear Branches')), onClick: () => {
-							setExpandedRuns(new Set());
-							setOpt({ collapseLinear: !opts.collapseLinear });
+						{ label: check(topo, t('Sort Topologically')), onClick: () => {
+							orderRef.current = { ...orderRef.current, order: 'topo' };
+							setOpt({ topo: true });
+							void load(filters, false, []);
 						} },
-						'sep',
-						{ label: check(opts.highlightCurrent, t('Highlight Current Branch')), onClick: () => setOpt({ highlightCurrent: !opts.highlightCurrent }) },
-						{ label: check(opts.highlightMine, t('Highlight My Commits')), onClick: () => setOpt({ highlightMine: !opts.highlightMine }) },
-						'sep',
-						{ label: check(opts.compactRefs, t('Compact References View')), onClick: () => setOpt({ compactRefs: !opts.compactRefs }) },
-						{ label: check(opts.tagNames, t('Show Tag Names')), onClick: () => setOpt({ tagNames: !opts.tagNames }) },
-						{ label: check(opts.showHash, t('Show Hash Column')), onClick: () => setOpt({ showHash: !opts.showHash }) },
-						{ label: check(opts.dateFormat === 'relative', t('Relative Dates')), onClick: () => setOpt({ dateFormat: opts.dateFormat === 'relative' ? 'absolute' : 'relative' }) },
+						{ label: check(opts.longEdges, t('Long Edges')), onClick: () => setOpt({ longEdges: !opts.longEdges }) },
+						{ label: check(opts.firstParent, t('Show First Parent')), onClick: () => {
+							orderRef.current = { ...orderRef.current, firstParent: !opts.firstParent };
+							setOpt({ firstParent: !opts.firstParent });
+							void load(filters, false, []);
+						} },
+						{ label: check(opts.noMerges, t('No Merges')), onClick: () => {
+							orderRef.current = { ...orderRef.current, noMerges: !opts.noMerges };
+							setOpt({ noMerges: !opts.noMerges });
+							void load(filters, false, []);
+						} },
+						{ label: `   ${t('Collapse Linear Branches')}`, onClick: () => {
+							setExpandedRuns(new Set());
+							setOpt({ collapseLinear: true });
+						} },
+						{ label: `   ${t('Expand Linear Branches')}`, onClick: () => {
+							setExpandedRuns(new Set());
+							setOpt({ collapseLinear: false });
+						} },
 						'sep',
 						{ label: t('Go to Hash/Branch/Tag...'), onClick: () => call('command', { command: 'changeline.log.goTo', args: [{ logId: init.id }] }) },
 					]}

@@ -67,7 +67,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | Commit graph, branch / tag labels, author, date, hash columns | Panel *Git* → Log | U, V, S 03 |
 | Branches pane with favorites, groups, incoming/outgoing | Log left pane | V (navigate to a branch), S 03 |
 | Filters: text/hash (regex, case), branch, user, date, paths | Filter bar | I, V (text), H |
-| IntelliSort, show long edges (cut into arrows otherwise), collapse linear branches, highlight current branch / my commits, compact references view, show tag names | View options | U, V |
+| View options as in JetBrains: Show (commit timestamp, tag names, compact references view, references on the left, columns), Highlight (my commits, merge commits, current branch, not cherry-picked commits), Graph Options (sort by commit date / topologically, long edges, show first parent, no merges, collapse / expand linear branches) | View options | U, V |
 | Commit details, changed files tree, merge commit parent selection | Right pane | V, H |
 | Show Diff Preview next to the changed files | Log toolbar | V |
 | Commit context menu (cherry-pick, revert, reset, undo, edit message, fixup, squash into, squash commits, drop, interactive rebase from here, push up to here, new branch / tag, checkout revision, show repository at revision, compare with local, create patch, copy revision, go to parent / child, open in browser) | Right-click on a commit; dialogs open as overlay in the log | I (operations), E, V (menu context of the rows, edit message overlay, reset quick pick), H, S 14 |

@@ -16,13 +16,18 @@ interface SavedTab {
 export class BranchWorkspace implements vscode.Disposable {
 	private readonly branches = new Map<string, string | undefined>();
 	private readonly disposables: vscode.Disposable[] = [];
+	private queue: Promise<void> = Promise.resolve();
 
 	constructor(private readonly memento: vscode.Memento) {
 		const s = services();
 		for (const repo of s.repos.repositories) {
 			this.branches.set(repo.root, repo.state.branch);
 		}
-		this.disposables.push(s.repos.onDidChangeState((repo) => void this.stateChanged(repo)));
+		this.disposables.push(
+			s.repos.onDidChangeState((repo) => {
+				this.queue = this.queue.then(() => this.stateChanged(repo)).catch(() => undefined);
+			}),
+		);
 	}
 
 	private key(repo: Repository, branch: string): string {
@@ -34,7 +39,7 @@ export class BranchWorkspace implements vscode.Disposable {
 		const before = this.branches.get(repo.root);
 		const after = repo.state.branch;
 		this.branches.set(repo.root, after);
-		if (!known || before === after || !before || !after || !config('branches.restoreWorkspace', false)) {
+		if (!known || before === after || !before || !after || !config('branches.restoreWorkspace', true)) {
 			return;
 		}
 		await this.switch(repo, before, after);
@@ -50,7 +55,9 @@ export class BranchWorkspace implements vscode.Disposable {
 			return;
 		}
 		const keep = new Set(restore.map((t) => t.uri));
-		await vscode.window.tabGroups.close(tabs.filter(({ tab }) => !tab.isDirty && !keep.has((tab.input as vscode.TabInputText).uri.toString())).map(({ tab }) => tab));
+		for (const { tab } of tabs.filter(({ tab }) => !tab.isDirty && !keep.has((tab.input as vscode.TabInputText).uri.toString()))) {
+			await Promise.resolve(vscode.window.tabGroups.close(tab)).catch(() => undefined);
+		}
 		const open = (t: SavedTab, preserveFocus: boolean) =>
 			vscode.window.showTextDocument(vscode.Uri.parse(t.uri), { viewColumn: t.column, preview: false, preserveFocus }).then(undefined, () => undefined);
 		for (const t of restore.filter((x) => !x.active)) {

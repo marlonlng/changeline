@@ -272,7 +272,7 @@ function fileIcon(status: string): string {
 }
 
 /** Small popup menu anchored at a position (for split buttons and dropdowns). */
-export function PopupMenu(props: { x: number; y: number; items: ({ label: string; onClick: () => void; icon?: string } | 'sep')[]; onClose: () => void }) {
+export function PopupMenu(props: { x: number; y: number; items: ({ label: string; onClick: () => void; icon?: string } | { heading: string } | 'sep')[]; onClose: () => void }) {
 	useEffect(() => {
 		const close = () => props.onClose();
 		const key = (e: KeyboardEvent) => e.key === 'Escape' && props.onClose();
@@ -290,6 +290,10 @@ export function PopupMenu(props: { x: number; y: number; items: ({ label: string
 			{props.items.map((it, i) =>
 				it === 'sep' ? (
 					<div key={i} class="sep" />
+				) : 'heading' in it ? (
+					<div key={i} class="heading">
+						{it.heading}
+					</div>
 				) : (
 					<div
 						key={i}

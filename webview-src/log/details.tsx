@@ -27,7 +27,7 @@ export function IssueText({ text, rules }: { text: string; rules?: IssueRule[] }
 	);
 }
 
-export function DetailsPane(props: { details?: Details; loading: boolean; logId: string; highlightPath?: string; parentIndex: number; onParentChange: (index: number) => void; onNavigate: (hash: string) => void; onFileSelect?: (file: FileChange | undefined) => void; issueRules?: IssueRule[] }) {
+export function DetailsPane(props: { details?: Details; loading: boolean; logId: string; highlightPath?: string; parentIndex: number; onParentChange: (index: number) => void; onNavigate: (hash: string) => void; onFileSelect?: (file: FileChange | undefined) => void; issueRules?: IssueRule[]; diffPreview?: boolean; onToggleDiffPreview?: () => void }) {
 	const [groupByDir, setGroupByDir] = useState<boolean>(getState<{ detailsGroup: boolean }>().detailsGroup ?? true);
 	const [selected, setSelected] = useState<string[]>([]);
 	const [containing, setContaining] = useState<{ branches: string[]; tags: string[] } | 'loading' | undefined>(undefined);
@@ -60,6 +60,7 @@ export function DetailsPane(props: { details?: Details; loading: boolean; logId:
 						))}
 					</select>
 				)}
+				{props.onToggleDiffPreview && <IconButton icon="diff" title={t('Show Diff Preview')} active={props.diffPreview} onClick={props.onToggleDiffPreview} />}
 				<IconButton
 					icon="list-tree"
 					title={t('Group by Directory')}

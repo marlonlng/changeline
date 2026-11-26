@@ -62,6 +62,7 @@ export interface LogQuery {
 	order?: 'date' | 'topo';
 	follow?: boolean;
 	firstParent?: boolean;
+	noMerges?: boolean;
 	lineRange?: { start: number; end: number; path: string };
 }
 
@@ -434,6 +435,9 @@ export class Repository {
 		}
 		if (q.firstParent) {
 			args.push('--first-parent');
+		}
+		if (q.noMerges) {
+			args.push('--no-merges');
 		}
 		if (q.paths && q.paths.length && !q.follow && !q.lineRange) {
 			args.push('--parents');

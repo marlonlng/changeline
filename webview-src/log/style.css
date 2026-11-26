@@ -483,3 +483,17 @@ body {
 	color: var(--vscode-textLink-foreground);
 	border-color: var(--vscode-textLink-foreground);
 }
+
+.commit-row.not-picked .text {
+	font-weight: 600;
+}
+
+.commit-row.picked {
+	opacity: 0.55;
+}
+
+.labels.left {
+	flex: none;
+	margin-right: 4px;
+}
+

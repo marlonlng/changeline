@@ -154,8 +154,8 @@ export class LogController implements vscode.Disposable {
 		};
 	}
 
-	private query(filters: LogFilters, skip: number, limit: number, order?: 'date' | 'topo'): LogQuery {
-		const q: LogQuery = { skip, limit, order: order ?? config<'date' | 'topo'>('log.order', 'date') };
+	private query(filters: LogFilters, skip: number, limit: number, order?: 'date' | 'topo', graph: { firstParent?: boolean; noMerges?: boolean } = {}): LogQuery {
+		const q: LogQuery = { skip, limit, order: order ?? config<'date' | 'topo'>('log.order', 'date'), firstParent: graph.firstParent, noMerges: graph.noMerges };
 		if (this.scope.revisions) {
 			q.revisions = this.scope.revisions;
 		} else if (filters.branches && filters.branches.length) {
@@ -220,12 +220,12 @@ export class LogController implements vscode.Disposable {
 				}
 				return repo ? this.refsPayload(repo) : { refs: [] };
 			},
-			load: async (p: { filters: LogFilters; skip: number; limit: number; order?: 'date' | 'topo' }) => {
+			load: async (p: { filters: LogFilters; skip: number; limit: number; order?: 'date' | 'topo'; firstParent?: boolean; noMerges?: boolean }) => {
 				const repo = this.repo;
 				if (!repo) {
 					return { commits: [], hasMore: false };
 				}
-				const q = this.query(p.filters, p.skip, p.limit, p.order);
+				const q = this.query(p.filters, p.skip, p.limit, p.order, p);
 				let commits: CommitInfo[] = await repo.log(q);
 				const text = p.filters.text?.trim();
 				if (p.skip === 0 && text && /^[0-9a-f]{7,40}$/i.test(text)) {
@@ -293,6 +293,14 @@ export class LogController implements vscode.Disposable {
 					const base = oldest.parents[0] ?? '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 					await openDiff({ targets: p.files.map((f) => revisionTarget(repo, base, commits[0].hash, f)), index });
 				}
+			},
+			notCherryPicked: async (p: { branch: string }) => {
+				const repo = this.repo;
+				if (!repo) {
+					return [];
+				}
+				const out = await repo.run(['cherry', 'HEAD', p.branch]).catch(() => ({ stdout: '' }));
+				return out.stdout.split('\n').filter((l) => l.startsWith('+ ')).map((l) => l.slice(2).trim());
 			},
 			openUrl: (p: { url: string }) => {
 				if (/^https?:\/\//i.test(p.url)) {
