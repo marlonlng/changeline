@@ -51,7 +51,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | JetBrains | Changeline | Evidence |
 | --- | --- | --- |
 | Side-by-side viewer with two editors that scroll together and curved bands in the divider, unified viewer, syntax highlighting | Diff viewer | U, V, S 02, H |
-| Highlight words / lines / split changes / characters / do not highlight; do not ignore, trim whitespaces, ignore whitespaces (and empty lines), ignore formatting; collapse unchanged fragments; settings menu with Synchronize Scrolling, Use Soft Wraps, Show Line Numbers, Show White Spaces | Diff toolbar | U, V, H |
+| Highlight words / lines / split changes / characters / do not highlight; do not ignore, trim whitespaces, ignore whitespaces (and empty lines), ignore formatting; collapse unchanged fragments; settings menu with Synchronize Scrolling, Use Soft Wraps, Show Line Numbers, Show White Spaces, Annotate with Git Blame, Open in New Window | Diff toolbar | U, V, H |
 | » revert chunk, include checkbox, stage / unstage chunk | Diff gutter | V (revert, include), I (stage / unstage index writes), H |
 | Next / previous difference (F7), next / previous file | Toolbar, keys | V, H |
 | Change markers in the scrollbar, click jumps to the change | Overview bar of the diff viewer | U, V, S 02 |

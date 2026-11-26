@@ -20,6 +20,7 @@ export interface DiffViewSettings {
 	syncScroll: boolean;
 	lineNumbers: boolean;
 	showWhitespace: boolean;
+	annotate: boolean;
 	collapse: boolean;
 	highlight: HighlightMode;
 	context: number;
@@ -144,6 +145,7 @@ export class DiffPanel extends WebviewPanelBase {
 			syncScroll: stored.syncScroll ?? true,
 			lineNumbers: stored.lineNumbers ?? true,
 			showWhitespace: stored.showWhitespace ?? false,
+			annotate: stored.annotate ?? false,
 			collapse: stored.collapse ?? config('diff.collapseUnchanged', false),
 			highlight: stored.highlight ?? ((stored as { highlightWords?: boolean }).highlightWords === false ? 'lines' : config<HighlightMode>('diff.highlighting', 'words')),
 			context: config('diff.contextLines', 4),
@@ -304,6 +306,32 @@ export class DiffPanel extends WebviewPanelBase {
 					review.comments = await review.resolve(p.thread, p.resolved);
 					await this.reload();
 				}
+			},
+			blame: async () => {
+				const t = this.target;
+				const side = async (s: DiffSide) => {
+					if (s.kind !== 'git' && s.kind !== 'working') {
+						return undefined;
+					}
+					const real = s.kind === 'git' && s.ref && !s.ref.startsWith(':');
+					const contents = real ? undefined : (await readSide(t.repo, s))?.toString('utf8');
+					const blame = await t.repo.blame(s.path, { revision: real ? s.ref : undefined, contents }).catch(() => undefined);
+					if (!blame) {
+						return undefined;
+					}
+					const out: { author: string; date: number; hash: string; summary: string }[] = [];
+					for (const l of blame.lines) {
+						const c = blame.commits.get(l.hash);
+						out[l.line - 1] = { author: /^0+$/.test(l.hash) ? vscode.l10n.t('Not Committed Yet') : c?.author ?? '', date: c?.authorTime ?? 0, hash: l.hash, summary: c?.summary ?? '' };
+					}
+					return out;
+				};
+				const [left, right] = await Promise.all([side(t.left), side(t.right)]);
+				return { left, right };
+			},
+			newWindow: async () => {
+				this.panel.reveal(undefined, false);
+				await vscode.commands.executeCommand('workbench.action.moveEditorToNewWindow');
 			},
 			openUrl: (p: { url: string }) => {
 				if (/^https?:\/\//i.test(p.url)) {

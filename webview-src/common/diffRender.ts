@@ -73,6 +73,29 @@ export function escapeHtml(s: string): string {
 	return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }
 
+export interface Annotation {
+	author: string;
+	date: number;
+	hash: string;
+	summary: string;
+}
+
+export interface Annotations {
+	left?: Annotation[];
+	right?: Annotation[];
+}
+
+function annHtml(a: Annotation | undefined, on: boolean): string {
+	if (!on) {
+		return '';
+	}
+	if (!a) {
+		return '<span class="ann"></span>';
+	}
+	const date = a.date ? new Date(a.date * 1000).toLocaleDateString(language) : '';
+	return `<span class="ann" title="${escapeHtml(`${a.hash.slice(0, 8)} ${a.author}\n${a.summary}`)}">${escapeHtml(`${date} ${a.author}`)}</span>`;
+}
+
 export interface Settings {
 	whitespace: WhitespaceMode;
 	sideBySide: boolean;
@@ -80,6 +103,7 @@ export interface Settings {
 	syncScroll?: boolean;
 	lineNumbers?: boolean;
 	showWhitespace?: boolean;
+	annotate?: boolean;
 	collapse: boolean;
 	highlight: HighlightMode;
 	context: number;
@@ -230,7 +254,7 @@ export interface SidesHtml {
 	bands: Map<number, string>;
 }
 
-export function renderSides(m: Model, blocks: Block[], d: DiffData, s: Settings, current: number): SidesHtml {
+export function renderSides(m: Model, blocks: Block[], d: DiffData, s: Settings, current: number, ann?: Annotations): SidesHtml {
 	const left: string[] = [];
 	const right: string[] = [];
 	const actions: string[] = [];
@@ -242,13 +266,13 @@ export function renderSides(m: Model, blocks: Block[], d: DiffData, s: Settings,
 	for (const b of blocks) {
 		if (b.type === 'equal') {
 			for (let o = b.oldStart; o < b.oldStart + b.oldCount; o++) {
-				left.push(`<div class="line"><span class="ln" data-oline="${o + 1}">${o + 1}</span><span class="code">${lineHtml(m, 'old', o)}</span></div>`);
+				left.push(`<div class="line">${annHtml(ann?.left?.[o], !!ann)}<span class="ln" data-oline="${o + 1}">${o + 1}</span><span class="code">${lineHtml(m, 'old', o)}</span></div>`);
 				if (threads.size) {
 					left.push(threadHtml(threads, 'LEFT', o + 1, o + 1));
 				}
 			}
 			for (let n = b.newStart; n < b.newStart + b.newCount; n++) {
-				right.push(`<div class="line"><span class="ln" data-line="${n + 1}">${n + 1}</span><span class="code">${lineHtml(m, 'new', n)}</span></div>`);
+				right.push(`<div class="line">${annHtml(ann?.right?.[n], !!ann)}<span class="ln" data-line="${n + 1}">${n + 1}</span><span class="code">${lineHtml(m, 'new', n)}</span></div>`);
 				if (threads.size) {
 					right.push(threadHtml(threads, 'RIGHT', n + 1, n + 1));
 				}
@@ -265,11 +289,11 @@ export function renderSides(m: Model, blocks: Block[], d: DiffData, s: Settings,
 			bands.set(b.index, `band ${chunkKind(c)}${isExcluded ? ' excluded' : ''}${b.index === current ? ' current' : ''}`);
 			const oldLines: string[] = [];
 			for (let i = c.oldStart; i < c.oldEnd; i++) {
-				oldLines.push(`<div class="line"><span class="ln" data-oline="${i + 1}">${i + 1}</span><span class="code">${lineHtml(m, 'old', i, b.index)}</span></div>`);
+				oldLines.push(`<div class="line">${annHtml(ann?.left?.[i], !!ann)}<span class="ln" data-oline="${i + 1}">${i + 1}</span><span class="code">${lineHtml(m, 'old', i, b.index)}</span></div>`);
 			}
 			const newLines: string[] = [];
 			for (let i = c.newStart; i < c.newEnd; i++) {
-				newLines.push(`<div class="line"><span class="ln" data-line="${i + 1}">${i + 1}</span><span class="code">${lineHtml(m, 'new', i, b.index)}</span></div>`);
+				newLines.push(`<div class="line">${annHtml(ann?.right?.[i], !!ann)}<span class="ln" data-line="${i + 1}">${i + 1}</span><span class="code">${lineHtml(m, 'new', i, b.index)}</span></div>`);
 			}
 			const listName = d.chunkLists?.[key];
 			const listLabel = listName && listName !== d.fileList ? `<div class="chunk-cl"><span class="codicon codicon-list-unordered"></span> ${escapeHtml(listName)}</div>` : '';

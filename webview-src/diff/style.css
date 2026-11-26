@@ -584,3 +584,24 @@ body.vscode-high-contrast-light {
 	color: var(--vscode-editorWhitespace-foreground, rgba(128, 128, 128, 0.6));
 }
 
+.diff-body .ann {
+	flex: none;
+	position: sticky;
+	left: 0;
+	z-index: 1;
+	width: 24ch;
+	padding-right: 8px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--jg-muted);
+	background: var(--vscode-editorGutter-background, var(--vscode-editor-background));
+	font-family: var(--vscode-font-family);
+	font-size: 0.85em;
+	user-select: none;
+}
+
+.diff-body.annotate .ln {
+	left: 24ch;
+}
+

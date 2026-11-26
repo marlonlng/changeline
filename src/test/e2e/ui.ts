@@ -134,6 +134,10 @@ test('diff viewer: highlighting, word diff, whitespace, collapse, F7, unified, i
 	await new Promise((r) => setTimeout(r, 300));
 	assert.equal(await w.eval<number>(`document.querySelector('.pane.l').scrollTop`), 0, 'without synchronized scrolling the left side stays');
 	await diffSetting('Synchronize Scrolling');
+	await diffSetting('Annotate with Git Blame');
+	await w.waitFor(`[...document.querySelectorAll('.pane.l .ann')].some((e) => e.textContent.includes('E2E Tester')) && [...document.querySelectorAll('.pane.r .ch .ann')].some((e) => e.textContent.includes('Not Committed Yet'))`, 'blame annotations on both sides', 15000);
+	await diffSetting('Annotate with Git Blame');
+	await w.waitFor(`!document.querySelector('.diff-body .ann')`, 'annotations off');
 
 	await w.select('select[title="Viewer"]', 'unified');
 	await w.waitFor(`document.querySelectorAll('.diff-body.unified .u-chunk').length === 3`, 'unified viewer');

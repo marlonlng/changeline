@@ -1064,5 +1064,6 @@
 	"Synchronize Scrolling": "Scrollen synchronisieren",
 	"Show Line Numbers": "Zeilennummern anzeigen",
 	"Show White Spaces": "Leerzeichen anzeigen",
-	"Cleanup (fix all)": "Bereinigen (alles korrigieren)"
+	"Cleanup (fix all)": "Bereinigen (alles korrigieren)",
+	"Annotate with Git Blame": "Mit Git Blame annotieren"
 }

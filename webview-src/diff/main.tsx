@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { HighlightMode, WhitespaceMode } from '../../src/shared/diff';
 import { chunkForLineChange, LineChange } from '../../src/shared/lineChanges';
 import { linkIssues } from '../../src/shared/issueLinks';
-import { buildBlocks, buildModel, DiffData, markClass, renderSides, renderUnified, Settings } from '../common/diffRender';
+import { Annotations, buildBlocks, buildModel, DiffData, markClass, renderSides, renderUnified, Settings } from '../common/diffRender';
 import { Checkbox, Icon, IconButton, PopupMenu, useKeys } from '../common/components';
 import { basename, dirname, fullDate } from '../common/format';
 import { call, on } from '../common/rpc';
@@ -29,6 +29,7 @@ function App() {
 	const appliedFocus = useRef(0);
 	const [busy, setBusy] = useState(false);
 	const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+	const [annotations, setAnnotations] = useState<Annotations | undefined>(undefined);
 	const [composer, setComposer] = useState<{ line: number; side: 'LEFT' | 'RIGHT'; inReplyTo?: string; text: string } | null>(null);
 
 	useEffect(() => {
@@ -66,8 +67,15 @@ function App() {
 		if (!model || !data || !s) {
 			return '';
 		}
-		return s.sideBySide ? renderSides(model, blocks, data, s, current) : renderUnified(model, blocks, data, s, current);
-	}, [model, blocks, data, s?.sideBySide, current]);
+		return s.sideBySide ? renderSides(model, blocks, data, s, current, s.annotate ? annotations ?? {} : undefined) : renderUnified(model, blocks, data, s, current);
+	}, [model, blocks, data, s?.sideBySide, current, s?.annotate, annotations]);
+
+	useEffect(() => {
+		setAnnotations(undefined);
+		if (s?.annotate && data && !data.binary && !data.tooLarge) {
+			call<Annotations>('blame').then(setAnnotations, () => undefined);
+		}
+	}, [s?.annotate, data?.path, data?.fileIndex, data?.right, data?.left]);
 
 	const placeActions = () => {
 		const links = linksRef.current;
@@ -134,6 +142,9 @@ function App() {
 	}, [sideBySide, loaded]);
 
 	const update = (patch: Partial<Settings>) => {
+		if (patch.syncScroll !== undefined && linksRef.current) {
+			linksRef.current.synced = patch.syncScroll;
+		}
 		const next = { ...s!, ...patch };
 		setSettings(next);
 		void call('saveSettings', patch);
@@ -403,7 +414,7 @@ function App() {
 			) : null}
 			<div class="diff-scroll" style={{ display: data.binary || data.tooLarge || identical ? 'none' : undefined }} onClick={onBodyClick as any} onDblClick={onBodyDblClick as any}>
 				{s.sideBySide ? (
-					<div class={`diff-body side jg-code${s.highlight === 'none' ? ' hl-none' : ''}${busy ? ' busy' : ''}${data.review ? ' review' : ''}${s.softWrap ? ' wrap' : ''}${s.lineNumbers === false ? ' no-ln' : ''}${s.showWhitespace ? ' show-ws' : ''}`} style={{ '--lnw': lnWidth } as any}>
+					<div class={`diff-body side jg-code${s.highlight === 'none' ? ' hl-none' : ''}${busy ? ' busy' : ''}${data.review ? ' review' : ''}${s.softWrap ? ' wrap' : ''}${s.lineNumbers === false ? ' no-ln' : ''}${s.showWhitespace ? ' show-ws' : ''}${s.annotate ? ' annotate' : ''}`} style={{ '--lnw': lnWidth } as any}>
 						<div ref={leftRef} class="pane l" tabIndex={0} />
 						<div class="divider">
 							<svg ref={svgRef} class="bands" />
@@ -497,6 +508,9 @@ function App() {
 						{ label: `${s.lineNumbers !== false ? '✓ ' : '   '}${t('Show Line Numbers')}`, onClick: () => update({ lineNumbers: s.lineNumbers === false }) },
 						{ label: `${s.showWhitespace ? '✓ ' : '   '}${t('Show White Spaces')}`, onClick: () => update({ showWhitespace: !s.showWhitespace }) },
 						{ label: `${s.collapse ? '✓ ' : '   '}${t('Collapse unchanged fragments')}`, onClick: () => update({ collapse: !s.collapse }) },
+						{ label: `${s.annotate ? '✓ ' : '   '}${t('Annotate with Git Blame')}`, onClick: () => update({ annotate: !s.annotate }) },
+						'sep',
+						{ label: `   ${t('Open in New Window')}`, onClick: () => void call('newWindow') },
 					]}
 				/>
 			)}
