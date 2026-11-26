@@ -8,7 +8,7 @@ import { formatDate, fullDate } from '../common/format';
 import { call, getState, on, patchState } from '../common/rpc';
 import { BranchesPane } from './branches';
 import { DetailsPane } from './details';
-import { GraphCell, ROW_HEIGHT } from './graph';
+import { GraphCell, graphColor, ROW_HEIGHT } from './graph';
 import type { CommitInfo, Details, Filters, InitData, RefLabel, RefsPayload } from './types';
 import { plural, t } from '../common/l10n';
 import { mountDialogLayer } from '../common/dialog';
@@ -31,6 +31,7 @@ interface ViewOptions {
 	highlightNotPicked: boolean;
 	firstParent: boolean;
 	noMerges: boolean;
+	rootNames: boolean;
 	longEdges: boolean;
 	compactRefs: boolean;
 	tagNames: boolean;
@@ -151,6 +152,7 @@ function App() {
 		highlightNotPicked: saved.highlightNotPicked ?? false,
 		firstParent: saved.firstParent ?? false,
 		noMerges: saved.noMerges ?? false,
+		rootNames: saved.rootNames ?? false,
 		longEdges: saved.longEdges ?? false,
 		compactRefs: saved.compactRefs ?? false,
 		tagNames: saved.tagNames ?? false,
@@ -192,7 +194,15 @@ function App() {
 		const token = ++loadToken.current;
 		setLoading(true);
 		try {
-			const res = await call<{ commits: CommitInfo[]; hasMore: boolean }>('load', { filters: f, skip: append ? current.length : 0, limit: pageSize, ...orderRef.current });
+			const skipByRoot: Record<string, number> = {};
+			if (append) {
+				for (const c of current) {
+					if (c.root) {
+						skipByRoot[c.root] = (skipByRoot[c.root] ?? 0) + 1;
+					}
+				}
+			}
+			const res = await call<{ commits: CommitInfo[]; hasMore: boolean }>('load', { filters: f, skip: append ? current.length : 0, limit: pageSize, skipByRoot, ...orderRef.current });
 			if (token !== loadToken.current) {
 				return;
 			}
@@ -323,7 +333,7 @@ function App() {
 		setParentIndex(0);
 		detailsTimer.current = window.setTimeout(async () => {
 			try {
-				const d = await call<Details>('details', { hashes: sel.map((c) => c.hash) });
+				const d = await call<Details>('details', { hashes: sel.map((c) => c.hash), root: sel[0].root });
 				setDetails(d);
 			} catch (e) {
 				setDetails(undefined);
@@ -340,7 +350,7 @@ function App() {
 		}
 		let stale = false;
 		setPreviewLoading(true);
-		call<PreviewData | undefined>('fileDiff', { hashes: details.commits.map((c) => c.hash), path: previewFile.path, origPath: previewFile.origPath, status: previewFile.status, parentIndex })
+		call<PreviewData | undefined>('fileDiff', { hashes: details.commits.map((c) => c.hash), path: previewFile.path, origPath: previewFile.origPath, status: previewFile.status, parentIndex, root: details.root })
 			.then((d) => !stale && setPreview(d), () => !stale && setPreview(undefined))
 			.finally(() => !stale && setPreviewLoading(false));
 		return () => {
@@ -520,8 +530,13 @@ function App() {
 	const showAuthor = opts.showAuthorCol && centerWidth > 470;
 	const showDate = opts.showDateCol && centerWidth > 360;
 	const showHashCol = opts.showHash && centerWidth > 600;
+	const allRepos = init.repoRoot === '*';
+	const rootIndex = new Map(init.repos.map((r, i) => [r.root, i]));
+	const rootName = new Map(init.repos.map((r) => [r.root, r.name]));
+	const showRootCol = allRepos && opts.rootNames;
 	const compact = centerWidth < 640;
-	const gridCols = `minmax(0, 1fr)${showAuthor ? ` ${opts.colAuthor}px` : ''}${showDate ? ` ${opts.colDate}px` : ''}${showHashCol ? ` ${opts.colHash}px` : ''}`;
+	const rootStrip = allRepos && !showRootCol;
+	const gridCols = `${showRootCol ? '110px ' : rootStrip ? '4px ' : ''}minmax(0, 1fr)${showAuthor ? ` ${opts.colAuthor}px` : ''}${showDate ? ` ${opts.colDate}px` : ''}${showHashCol ? ` ${opts.colHash}px` : ''}`;
 	const branchLabel = filters.branches?.length ? filters.branches.join(', ') : undefined;
 
 	const labelsOf = (rowLabels: RefLabel[] | undefined) =>
@@ -569,6 +584,7 @@ function App() {
 								title={t('Repository')}
 								onChange={async (e) => {
 									const root = (e.target as HTMLSelectElement).value;
+									window.clearTimeout(detailsTimer.current);
 									setInit({ ...init, repoRoot: root });
 									setRefs(await call<RefsPayload>('setRepo', { root }));
 									setSelected([]);
@@ -576,6 +592,7 @@ function App() {
 									void load(filters, false, []);
 								}}
 							>
+								<option value="*">{t('All Repositories')}</option>
 								{init.repos.map((r) => (
 									<option value={r.root}>{r.name}</option>
 								))}
@@ -669,6 +686,8 @@ function App() {
 					</div>
 					{error && <div class="banner jg-error">{error}</div>}
 					<div class="table-header" style={{ gridTemplateColumns: gridCols }}>
+						{showRootCol && <div class="th">{t('Repository')}</div>}
+						{rootStrip && <div class="th root-strip" />}
 						<div class="th">{t('Subject')}</div>
 						{showAuthor && (
 							<div class="th">
@@ -729,6 +748,8 @@ function App() {
 										onDblClick={() => isHistory && call('openCommitDiffForPath', { hash: c.hash })}
 										title={`${c.subject}\n${c.hash}\n${c.author} <${c.authorEmail}>\n${fullDate(c.authorDate)}`}
 									>
+										{showRootCol && <div class="td root">{rootName.get(c.root ?? '') ?? ''}</div>}
+										{rootStrip && <div class="td root-strip" title={rootName.get(c.root ?? '')} style={{ background: graphColor((rootIndex.get(c.root ?? '') ?? 0) + 3) }} />}
 										<div class="td subject">
 											{row && <GraphCell row={row} isHead={c.hash === refs.head} dimmed={dim} />}
 											{!row && <span class="no-graph-dot" />}
@@ -769,7 +790,7 @@ function App() {
 								parentIndex={parentIndex}
 								onParentChange={async (i) => {
 									setParentIndex(i);
-									setDetails(await call<Details>('details', { hashes: selected, parentIndex: i }));
+									setDetails(await call<Details>('details', { hashes: selected, parentIndex: i, root: details?.root }));
 								}}
 								onNavigate={(hash) => {
 									const i = index.get(hash);
@@ -813,6 +834,7 @@ function App() {
 						{ label: check(opts.showAuthorCol, t('Author Column')), onClick: () => setOpt({ showAuthorCol: !opts.showAuthorCol }) },
 						{ label: check(opts.showDateCol, t('Date Column')), onClick: () => setOpt({ showDateCol: !opts.showDateCol }) },
 						{ label: check(opts.showHash, t('Hash Column')), onClick: () => setOpt({ showHash: !opts.showHash }) },
+						...(allRepos ? [{ label: check(opts.rootNames, t('Root Names')), onClick: () => setOpt({ rootNames: !opts.rootNames }) }] : []),
 						{ label: check(opts.dateFormat === 'relative', t('Relative Dates')), onClick: () => setOpt({ dateFormat: opts.dateFormat === 'relative' ? 'absolute' : 'relative' }) },
 						{ heading: t('Highlight') },
 						{ label: check(opts.highlightMine, t('My Commits')), onClick: () => setOpt({ highlightMine: !opts.highlightMine }) },

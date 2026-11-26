@@ -45,6 +45,7 @@ export interface InitData extends RefsPayload {
 export interface Details {
 	commits: (CommitInfo & { body: string })[];
 	files: FileChange[];
+	root?: string;
 }
 
 export interface RefLabel {

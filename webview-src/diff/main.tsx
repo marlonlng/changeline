@@ -26,13 +26,15 @@ function App() {
 	const linksRef = useRef<LinkedPanes | undefined>(undefined);
 	const bandsRef = useRef<Map<number, string>>(new Map());
 	const focusRef = useRef<LineChange | undefined>(undefined);
+	const appliedFocus = useRef(0);
 	const [busy, setBusy] = useState(false);
 	const [composer, setComposer] = useState<{ line: number; side: 'LEFT' | 'RIGHT'; inReplyTo?: string; text: string } | null>(null);
 
 	useEffect(() => {
 		const apply = (d: DiffData) => {
-			if (d.focus) {
-				focusRef.current = d.focus;
+			if (d.focus && d.focus.id !== appliedFocus.current) {
+				appliedFocus.current = d.focus.id;
+				focusRef.current = d.focus.change;
 			}
 			setData((prev) => {
 				if (!prev || prev.path !== d.path || prev.fileIndex !== d.fileIndex) {

@@ -81,7 +81,7 @@ export function DetailsPane(props: { details?: Details; loading: boolean; logId:
 						setSelected(paths);
 						props.onFileSelect?.(paths.length === 1 ? d.files.find((f) => f.path === paths[0]) : undefined);
 					}}
-					onOpen={(f) => call('openDiff', { hashes, path: f.path, files: d.files, parentIndex: props.parentIndex })}
+					onOpen={(f) => call('openDiff', { hashes, path: f.path, files: d.files, parentIndex: props.parentIndex, root: d.root })}
 					context={(f) => ({ webviewSection: 'logFile', logId: props.logId, path: f.path, origPath: f.origPath, status: f.status, hash: d.commits[0].hash, multiple: d.commits.length > 1 })}
 					emptyText={t('No changes')}
 				/>
@@ -125,7 +125,7 @@ export function DetailsPane(props: { details?: Details; loading: boolean; logId:
 									class="jg-link"
 									onClick={async () => {
 										setContaining('loading');
-										setContaining(await call<{ branches: string[]; tags: string[] }>('containing', { hash: single.hash }));
+										setContaining(await call<{ branches: string[]; tags: string[] }>('containing', { hash: single.hash, root: d.root }));
 									}}
 								>
 									{t('Show branches containing this commit')}

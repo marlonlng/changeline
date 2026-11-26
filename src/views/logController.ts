@@ -4,6 +4,7 @@ import type { LogQuery, Repository } from '../git/repository';
 import { services } from '../services';
 import type { CommitInfo, FileChange } from '../shared/types';
 import { isBinary } from '../shared/diff';
+import { mergeByDate } from '../shared/logMerge';
 import { issueRules } from '../issueLinks';
 import { config, escapeRegex, shortHash } from '../util';
 import { DialogOverlay, DialogSurface, withDialogOrigin } from '../webviews/dialogOverlay';
@@ -54,6 +55,10 @@ export async function toggleFavoriteBranch(repo: Repository, name: string): Prom
 
 const PREVIEW_LIMIT = 2_000_000;
 
+/** repoRoot of a log that shows all repositories of the workspace, like JetBrains' multi-root log. */
+export const ALL_REPOS = '*';
+
+
 export class LogController implements vscode.Disposable {
 	private static registry = new Map<string, LogController>();
 	private static lastFocused?: LogController;
@@ -66,6 +71,7 @@ export class LogController implements vscode.Disposable {
 	selection: string[] = [];
 	private selectionCommits: CommitInfo[] = [];
 	repoRoot?: string;
+	private focusRoot?: string;
 	private resolveReady!: () => void;
 	readonly ready = new Promise<void>((r) => (this.resolveReady = r));
 
@@ -75,7 +81,7 @@ export class LogController implements vscode.Disposable {
 
 	static refreshAll(repo?: Repository): void {
 		for (const c of LogController.registry.values()) {
-			if (!repo || c.repoRoot === repo.root) {
+			if (!repo || c.repoRoot === repo.root || c.repoRoot === ALL_REPOS) {
 				c.rpc.emit('refresh');
 			}
 		}
@@ -83,7 +89,7 @@ export class LogController implements vscode.Disposable {
 
 	constructor(private readonly webview: vscode.Webview, readonly scope: LogScope, surface: DialogSurface) {
 		this.id = `log-${++LogController.counter}`;
-		this.repoRoot = scope.repoRoot ?? services().repos.current()?.root;
+		this.repoRoot = scope.repoRoot ?? (scope.kind === 'log' && services().repos.repositories.length > 1 ? ALL_REPOS : services().repos.current()?.root);
 		LogController.registry.set(this.id, this);
 		LogController.lastFocused = this;
 		this.dialogs = new DialogOverlay((name, data) => this.rpc.emit(name, data), surface);
@@ -91,12 +97,15 @@ export class LogController implements vscode.Disposable {
 		const s = services();
 		this.disposables.push(
 			s.repos.onDidChangeRefs((repo) => {
-				if (repo.root === this.repoRoot) {
+				if (repo.root === this.repoRoot || this.allRepos) {
 					this.rpc.emit('refresh');
 				}
 			}),
 			s.repos.onDidChangeRepositories(() => {
-				if (!this.repoRoot || !s.repos.getByRoot(this.repoRoot)) {
+				if (this.allRepos && s.repos.repositories.length < 2) {
+					this.repoRoot = s.repos.current()?.root;
+				}
+				if (!this.repoRoot || (!this.allRepos && !s.repos.getByRoot(this.repoRoot))) {
 					this.repoRoot = s.repos.current()?.root;
 				}
 				this.rpc.emit('repos', this.reposInfo());
@@ -104,8 +113,21 @@ export class LogController implements vscode.Disposable {
 		);
 	}
 
+	get allRepos(): boolean {
+		return this.repoRoot === ALL_REPOS;
+	}
+
+	/** The repository the log works on; with all repositories shown, the one of the selected commit. */
 	get repo(): Repository | undefined {
-		return this.repoRoot ? services().repos.getByRoot(this.repoRoot) : undefined;
+		const s = services();
+		if (this.allRepos) {
+			return (this.focusRoot && s.repos.getByRoot(this.focusRoot)) || s.repos.current() || s.repos.repositories[0];
+		}
+		return this.repoRoot ? s.repos.getByRoot(this.repoRoot) : undefined;
+	}
+
+	private repoFor(root?: string): Repository | undefined {
+		return root ? services().repos.getByRoot(root) : this.repo;
 	}
 
 	markFocused(): void {
@@ -121,6 +143,9 @@ export class LogController implements vscode.Disposable {
 	setSelection(commits: CommitInfo[]): void {
 		this.selection = commits.map((c) => c.hash);
 		this.selectionCommits = commits;
+		if (commits[0]?.root) {
+			this.focusRoot = commits[0].root;
+		}
 		LogController.lastFocused = this;
 	}
 
@@ -145,8 +170,18 @@ export class LogController implements vscode.Disposable {
 
 	private refsPayload(repo: Repository) {
 		const st = repo.state;
+		const all = this.allRepos ? services().repos.repositories : [repo];
+		const seen = new Set<string>();
+		const refs = all.flatMap((r) =>
+			r.refs.filter((ref) => {
+				const key = `${ref.type}:${ref.shortName}:${ref.hash}`;
+				const fresh = !seen.has(key);
+				seen.add(key);
+				return fresh;
+			}),
+		);
 		return {
-			refs: repo.refs,
+			refs,
 			head: st.head,
 			branch: st.branch,
 			detached: st.detached,
@@ -215,12 +250,20 @@ export class LogController implements vscode.Disposable {
 			setRepo: (p: { root: string }) => {
 				this.repoRoot = p.root;
 				const repo = this.repo;
-				if (repo) {
+				if (repo && !this.allRepos) {
 					services().repos.setLastActive(repo);
 				}
 				return repo ? this.refsPayload(repo) : { refs: [] };
 			},
-			load: async (p: { filters: LogFilters; skip: number; limit: number; order?: 'date' | 'topo'; firstParent?: boolean; noMerges?: boolean }) => {
+			load: async (p: { filters: LogFilters; skip: number; limit: number; order?: 'date' | 'topo'; firstParent?: boolean; noMerges?: boolean; skipByRoot?: Record<string, number> }) => {
+				if (this.allRepos) {
+					const repos = services().repos.repositories;
+					const lists = await Promise.all(
+						repos.map(async (r) => (await r.log(this.query(p.filters, p.skipByRoot?.[r.root] ?? 0, p.limit, p.order, p)).catch(() => [])).map((c) => ({ ...c, root: r.root }))),
+					);
+					const commits = mergeByDate(lists, p.limit);
+					return { commits, hasMore: lists.some((l) => l.length >= p.limit) || commits.length >= p.limit };
+				}
 				const repo = this.repo;
 				if (!repo) {
 					return { commits: [], hasMore: false };
@@ -244,8 +287,8 @@ export class LogController implements vscode.Disposable {
 				}
 				return { commits, hasMore: commits.length >= p.limit };
 			},
-			details: async (p: { hashes: string[]; parentIndex?: number }) => {
-				const repo = this.repo;
+			details: async (p: { hashes: string[]; parentIndex?: number; root?: string }) => {
+				const repo = this.repoFor(p.root);
 				if (!repo || !p.hashes.length) {
 					return undefined;
 				}
@@ -260,10 +303,10 @@ export class LogController implements vscode.Disposable {
 						? await repo.diffFiles(oldest.parents[0], newest.hash)
 						: await repo.getCommitFiles(newest.hash, []);
 				}
-				return { commits, files };
+				return { commits, files, root: repo.root };
 			},
-			containing: async (p: { hash: string }) => {
-				const repo = this.repo;
+			containing: async (p: { hash: string; root?: string }) => {
+				const repo = this.repoFor(p.root);
 				if (!repo) {
 					return { branches: [], tags: [] };
 				}
@@ -271,16 +314,15 @@ export class LogController implements vscode.Disposable {
 				return { branches, tags };
 			},
 			selection: (p: { hashes: string[]; commits: CommitInfo[] }) => {
+				this.setSelection(p.commits);
 				this.selection = p.hashes;
-				this.selectionCommits = p.commits;
-				LogController.lastFocused = this;
 			},
 			pickBranches: async (p: { current?: string[] }) => this.pickBranches(p.current ?? []),
 			pickUsers: async (p: { current?: string[]; authors: string[] }) => this.pickUsers(p.current ?? [], p.authors),
 			pickDate: async () => this.pickDate(),
 			pickPaths: async (p: { current?: string[] }) => this.pickPaths(p.current ?? []),
-			openDiff: async (p: { hashes: string[]; path: string; files: FileChange[]; parentIndex?: number }) => {
-				const repo = this.repo;
+			openDiff: async (p: { hashes: string[]; path: string; files: FileChange[]; parentIndex?: number; root?: string }) => {
+				const repo = this.repoFor(p.root);
 				if (!repo) {
 					return;
 				}
@@ -307,8 +349,8 @@ export class LogController implements vscode.Disposable {
 					void vscode.env.openExternal(vscode.Uri.parse(p.url));
 				}
 			},
-			fileDiff: async (p: { hashes: string[]; path: string; origPath?: string; status: string; parentIndex?: number }) => {
-				const repo = this.repo;
+			fileDiff: async (p: { hashes: string[]; path: string; origPath?: string; status: string; parentIndex?: number; root?: string }) => {
+				const repo = this.repoFor(p.root);
 				if (!repo || !p.hashes.length) {
 					return undefined;
 				}
@@ -345,11 +387,14 @@ export class LogController implements vscode.Disposable {
 				await vscode.window.showTextDocument(uri, { preview: true });
 			},
 			branchClick: async (p: { ref: string }) => {
-				const repo = this.repo;
-				if (!repo) {
-					return undefined;
+				const repos = this.allRepos ? [this.repo, ...services().repos.repositories] : [this.repo];
+				for (const repo of repos) {
+					const hash = repo && (await repo.revParse(p.ref));
+					if (hash) {
+						return hash;
+					}
 				}
-				return repo.revParse(p.ref);
+				return undefined;
 			},
 			command: (p: { command: string; args?: unknown[] }) => {
 				if (!/^changeline\./.test(p.command)) {

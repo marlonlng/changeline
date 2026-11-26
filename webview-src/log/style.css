@@ -497,3 +497,16 @@ body {
 	margin-right: 4px;
 }
 
+.commit-row .td.root-strip,
+.table-header .root-strip {
+	padding: 0;
+	min-width: 0;
+}
+
+.commit-row .td.root {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--jg-muted);
+}
+

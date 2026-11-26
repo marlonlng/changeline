@@ -10,6 +10,8 @@ export interface FileChange {
 export interface CommitInfo {
 	hash: string;
 	parents: string[];
+	/** Repository of the commit in a log that shows several repositories. */
+	root?: string;
 	author: string;
 	authorEmail: string;
 	authorDate: number;

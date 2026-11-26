@@ -104,7 +104,7 @@ export interface DiffData {
 	review?: { title: string; comments: ReviewComment[]; pending: number };
 	fileList?: string;
 	chunkLists?: Record<string, string>;
-	focus?: LineChange;
+	focus?: { change: LineChange; id: number };
 	commit?: { hash: string; subject: string; body: string; author: string; authorEmail: string; authorDate: number; issueRules: IssueRule[] };
 }
 

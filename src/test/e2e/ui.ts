@@ -417,6 +417,38 @@ test('log: graph, labels, details, merge parents, text filter, highlight, collap
 	assert.equal(ctx.hash, featureTip);
 });
 
+test('log: all repositories in one log with a root column', async () => {
+	const nested = path.join(ws, 'nested-repo');
+	fs.mkdirSync(nested, { recursive: true });
+	const env = { ...process.env, GIT_AUTHOR_NAME: 'E2E Tester', GIT_AUTHOR_EMAIL: 'e2e@example.com', GIT_COMMITTER_NAME: 'E2E Tester', GIT_COMMITTER_EMAIL: 'e2e@example.com' };
+	cp.execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: nested, env });
+	fs.writeFileSync(path.join(nested, 'n.txt'), 'nested\n');
+	cp.execFileSync('git', ['add', '.'], { cwd: nested, env });
+	cp.execFileSync('git', ['commit', '-qm', 'nested repo commit'], { cwd: nested, env });
+	try {
+		await vscode.commands.executeCommand('changeline.refresh');
+		await waitFor(() => api.repositories().length === 2, 'nested repository found', 15000);
+		await vscode.commands.executeCommand('changeline.showLog');
+		const v = await webview('Log');
+		await v.waitFor(`!!document.querySelector('select.repo-select option[value="*"]')`, 'All Repositories option');
+		await v.select('select.repo-select', '*');
+		await v.waitFor(`[...document.querySelectorAll('.commit-row .text')].some((e) => e.textContent === 'nested repo commit') && [...document.querySelectorAll('.commit-row .text')].some((e) => e.textContent === 'initial commit') && document.querySelectorAll('.commit-row .root-strip').length > 0`, 'commits of both repositories with root colors', 15000);
+		await v.click('button[title="View Options"]');
+		await v.clickText('.jg-menu .item', 'Root Names');
+		await v.waitFor(`[...document.querySelectorAll('.commit-row .td.root')].some((e) => e.textContent === 'nested-repo')`, 'root names column');
+		await v.click('button[title="View Options"]');
+		await v.clickText('.jg-menu .item', 'Root Names');
+		await v.clickText('.commit-row .text', 'nested repo commit');
+		await waitFor(() => api._test.logView.current?.repo?.root && fs.realpathSync(api._test.logView.current.repo.root) === fs.realpathSync(nested), 'actions work on the repository of the selected commit');
+		await v.select('select.repo-select', repo().root);
+		await v.waitFor(`![...document.querySelectorAll('.commit-row .text')].some((e) => e.textContent === 'nested repo commit')`, 'back to one repository');
+	} finally {
+		fs.rmSync(nested, { recursive: true, force: true });
+		await vscode.commands.executeCommand('changeline.refresh');
+		await waitFor(() => api.repositories().length === 1, 'nested repository gone', 15000);
+	}
+});
+
 test('log: highlight not cherry-picked commits of a filtered branch', async () => {
 	await vscode.commands.executeCommand('changeline.showLogInNewTab', { repo: repo().root, branches: ['feature'] });
 	const v = await webview('Log: feature');

@@ -64,7 +64,8 @@ export async function writeWorkingFile(abs: string, text: string): Promise<void>
 export class DiffPanel extends WebviewPanelBase {
 	private static current?: DiffPanel;
 	private ctx!: DiffContext;
-	private focus?: LineChange;
+	private focus?: { change: LineChange; id: number };
+	private static focusCounter = 0;
 	private reloadTimer?: NodeJS.Timeout;
 
 	/** The open diff window, if any. */
@@ -84,7 +85,7 @@ export class DiffPanel extends WebviewPanelBase {
 	private constructor(ctx: DiffContext) {
 		super(services().context.extensionUri, 'changeline.diff', titleOf(ctx), 'diff', null, vscode.ViewColumn.Active, { retainContextWhenHidden: true });
 		this.ctx = ctx;
-		this.focus = ctx.focus;
+		this.focus = ctx.focus && { change: ctx.focus, id: ++DiffPanel.focusCounter };
 		const s = services();
 		this.disposables.push(
 			s.repos.onDidChangeState((repo) => {
@@ -108,7 +109,7 @@ export class DiffPanel extends WebviewPanelBase {
 
 	setContext(ctx: DiffContext): void {
 		this.ctx = ctx;
-		this.focus = ctx.focus;
+		this.focus = ctx.focus && { change: ctx.focus, id: ++DiffPanel.focusCounter };
 		this.panel.title = titleOf(ctx);
 		void this.reload();
 	}
@@ -147,7 +148,6 @@ export class DiffPanel extends WebviewPanelBase {
 		const t = this.target;
 		const s = services();
 		const focus = this.focus;
-		this.focus = undefined;
 		const [leftBuf, rightBuf, commit, rules] = await Promise.all([readSide(t.repo, t.left), readSide(t.repo, t.right), t.commit ? t.repo.getCommit(t.commit).catch(() => undefined) : undefined, t.commit ? issueRules(t.repo) : []]);
 		const binary = (!!leftBuf && isBinary(leftBuf)) || (!!rightBuf && isBinary(rightBuf));
 		const tooLarge = (leftBuf?.length ?? 0) > MAX_SIZE || (rightBuf?.length ?? 0) > MAX_SIZE;
@@ -224,6 +224,7 @@ export class DiffPanel extends WebviewPanelBase {
 			navigate: async (p: { index: number }) => {
 				if (p.index >= 0 && p.index < this.ctx.targets.length) {
 					this.ctx = { ...this.ctx, index: p.index };
+					this.focus = undefined;
 					this.panel.title = titleOf(this.ctx);
 					return this.data();
 				}

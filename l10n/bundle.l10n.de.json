@@ -1052,5 +1052,7 @@
 	"No Merges": "Keine Merges",
 	"Expand Linear Branches": "Lineare Branches ausklappen",
 	"Ignore formatting": "Formatierung ignorieren",
-	"Group by Prefix": "Nach Präfix gruppieren"
+	"Group by Prefix": "Nach Präfix gruppieren",
+	"All Repositories": "Alle Repositories",
+	"Root Names": "Root-Namen"
 }
