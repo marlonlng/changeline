@@ -90,6 +90,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | Interactive rebase dialog (pick / edit / reword / squash / fixup / drop, reorder) | Dialog | I, V, S 09 |
 | Continue / Abort / Skip | Status bar, Commit view banner, VCS popup | I, S 13 |
 | Update Project (merge / rebase / branch default, submodules) | ⌘T | I (fetch, merge, rebase) |
+| Clean working tree before update / smart checkout / rebase: Using Stash or Using Shelf | `changeline.saveChanges`, radio in the Update Project dialog | E |
 | Pull dialog, Fetch, auto fetch | Commands | I |
 | Push dialog (target editing, new branch, tags, hooks, force with lease, protected branches, rejected-push update) | ⇧⌘K | I, V (push, new branch), S 08 |
 | Manage Remotes, Clone (URL or GitHub list), Create Git Repository, Worktrees | Commands | I |
@@ -118,7 +119,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 
 ## Platforms
 
-All suites run in GitHub Actions on every push (`.github/workflows/ci.yml`): 81 unit and integration tests (including the two checks against the real GitHub and GitLab APIs and the completeness check of the German translation), 24 end-to-end tests through commands, 21 end-to-end tests in the real UI and 2 end-to-end tests with the German display language. The end-to-end tests run with an isolated Git configuration (`GIT_CONFIG_GLOBAL`) and lay VS Code out at a fixed 1280 × 800, so the machine's settings and screen cannot change the results.
+All suites run in GitHub Actions on every push (`.github/workflows/ci.yml`): 81 unit and integration tests (including the two checks against the real GitHub and GitLab APIs and the completeness check of the German translation), 25 end-to-end tests through commands, 21 end-to-end tests in the real UI and 2 end-to-end tests with the German display language. The end-to-end tests run with an isolated Git configuration (`GIT_CONFIG_GLOBAL`) and lay VS Code out at a fixed 1280 × 800, so the machine's settings and screen cannot change the results.
 
 - **Windows (windows-latest):** all suites pass (2026-10-26). The SSH passphrase test is skipped there, because it starts `ssh-agent` on a Unix socket. The path logic (drive letter case, backslashes against git's forward slashes, UNC paths, named pipe for askpass, script paths for Git for Windows' `sh`) is additionally unit-tested with `path.win32` on every platform. Day-to-day use on a Windows desktop has not happened yet.
 - **macOS (macos-latest and locally):** all suites pass locally (2026-11-26), plus the screenshot run.

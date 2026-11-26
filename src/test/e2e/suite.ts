@@ -538,6 +538,37 @@ test('generate commit message: prompt with the diff and recent messages, streame
 	}
 });
 
+test('smart checkout with the shelve policy puts local changes on the shelf and brings them back', async () => {
+	const repo = mainRepo();
+	const original = repo.state.branch!;
+	await commitFile('smart.txt', '1\n2\n3\n4\n5\n6\n', 'add smart');
+	await repo.run(['checkout', '-q', '-b', 'smart-br']);
+	await commitFile('smart.txt', 'X\n2\n3\n4\n5\n6\n', 'smart on branch');
+	await repo.run(['checkout', '-q', original]);
+	await repo.refresh();
+	fs.writeFileSync(repo.absolutePath('smart.txt'), '1\n2\n3\n4\n5\nY\n');
+	await repo.refresh();
+	await setting('saveChanges', 'shelve');
+	const shelfBefore = (await api._test.services().shelf.list()).length;
+	const restore = stubWindow({ warning: (_m, items) => items.find((i) => i.startsWith('Smart')), info: () => undefined });
+	try {
+		await vscode.commands.executeCommand('changeline.showLog');
+		const c = await waitFor(() => api._test.logView.current, 'log controller', 15000);
+		await repo.getRefs();
+		await vscode.commands.executeCommand('changeline.logBranch.checkout', { logId: c.id, ref: 'smart-br', refType: 'head' });
+		await waitFor(async () => (await repo.refresh(), repo.state.branch === 'smart-br'), 'checked out', 15000);
+		await waitFor(() => read('smart.txt') === 'X\n2\n3\n4\n5\nY\n', 'local change merged back from the shelf', 15000);
+		assert.ok((await api._test.services().shelf.list()).length >= shelfBefore, 'the changes went through the shelf');
+		assert.ok((await api._test.services().shelf.list()).some((l) => /Uncommitted changes before checkout/.test(l.name)), 'shelf entry named after the operation');
+	} finally {
+		restore();
+		await setting('saveChanges', undefined);
+		await repo.run(['checkout', '-q', '--force', original]).catch(() => undefined);
+		await repo.run(['branch', '-D', 'smart-br']).catch(() => undefined);
+		await repo.refresh();
+	}
+});
+
 test('review comments in the editor: threads, review comment, reply, resolve', async () => {
 	const { PrEditorComments } = await import('../../views/prEditorComments');
 	const repo = mainRepo();

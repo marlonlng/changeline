@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { GitError } from '../git/gitCli';
 import type { OperationOutcome, Repository } from '../git/repository';
 import { services } from '../services';
-import { plural, safe, showError } from '../util';
+import { config, plural, safe, showError } from '../util';
 import { LogController } from '../views/logController';
 import { DialogOverlay, dialogOrigin, withDialogOrigin } from '../webviews/dialogOverlay';
 
@@ -112,7 +112,7 @@ export async function withSmartStash<T>(repo: Repository, label: string, run: ()
 			vscode.l10n.t('Your local changes would be overwritten by {0}.', label) +
 				(files.length ? `\n\n${files.slice(0, 15).join('\n')}${files.length > 15 ? '\n…' : ''}` : '') +
 				'\n\n' +
-				vscode.l10n.t('{0} stashes them, runs the operation and restores them afterwards.', smart),
+				(config<'stash' | 'shelve'>('saveChanges', 'stash') === 'shelve' ? vscode.l10n.t('{0} shelves them, runs the operation and restores them afterwards.', smart) : vscode.l10n.t('{0} stashes them, runs the operation and restores them afterwards.', smart)),
 			{ modal: true },
 			...buttons,
 		);
@@ -122,21 +122,48 @@ export async function withSmartStash<T>(repo: Repository, label: string, run: ()
 		if (choice !== smart) {
 			return undefined;
 		}
-		const stashed = await repo.stash({ message: vscode.l10n.t('Changeline: uncommitted changes before {0}', label.toLowerCase()) });
+		const saved = await saveLocalChanges(repo, label);
 		let result: T;
 		try {
 			result = await run();
 		} catch (err) {
-			if (stashed) {
-				await repo.stashApply('stash@{0}', { pop: true });
-			}
+			await saved?.restore();
 			throw err;
 		}
-		if (stashed) {
-			await restoreStash(repo);
-		}
+		await saved?.restore();
 		return result;
 	}
+}
+
+export interface SavedChanges {
+	readonly kind: 'stash' | 'shelf';
+	/** Brings the changes back; while conflicts are being resolved it only tells where they are kept. */
+	restore(): Promise<void>;
+}
+
+/** Puts local changes aside before an operation that needs a clean working tree, by JetBrains' "Save changes" policy (stash or shelve). */
+export async function saveLocalChanges(repo: Repository, label: string, opts: { includeUntracked?: boolean } = {}): Promise<SavedChanges | undefined> {
+	if (config<'stash' | 'shelve'>('saveChanges', 'stash') === 'shelve') {
+		const changes = repo.state.changes.map((change) => ({ repo, change }));
+		if (!changes.length) {
+			return undefined;
+		}
+		const list = await services().shelf.shelve(vscode.l10n.t('Uncommitted changes before {0}', label.toLowerCase()), changes);
+		await repo.refresh();
+		return {
+			kind: 'shelf',
+			restore: async () => {
+				if (repo.state.operation !== 'none' && repo.state.conflicts.length) {
+					void vscode.window.showInformationMessage(vscode.l10n.t('Your local changes were shelved as "{0}". Unshelve them after resolving the conflicts.', list.name));
+					return;
+				}
+				const { unshelveList } = await import('./stashShelf');
+				await unshelveList(list);
+			},
+		};
+	}
+	const stashed = await repo.stash({ message: vscode.l10n.t('Changeline: uncommitted changes before {0}', label.toLowerCase()), includeUntracked: opts.includeUntracked });
+	return stashed ? { kind: 'stash', restore: () => restoreStash(repo) } : undefined;
 }
 
 export async function restoreStash(repo: Repository): Promise<void> {

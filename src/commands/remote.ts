@@ -8,7 +8,7 @@ import { config, plural, showError } from '../util';
 import { ComparePanel } from '../webviews/comparePanel';
 import { showDialog } from '../webviews/dialogPanel';
 import { PushPanel } from '../webviews/pushPanel';
-import { CommandContext, gitProgress, handleOutcome, hasLocalChanges, resolveRepo, restoreStash, withProgress, withSmartStash } from './common';
+import { CommandContext, gitProgress, handleOutcome, hasLocalChanges, resolveRepo, saveLocalChanges, withProgress, withSmartStash } from './common';
 
 export async function fetchAll(repos: readonly Repository[], silent = false): Promise<void> {
 	if (!repos.length) {
@@ -64,6 +64,16 @@ export async function updateProject(repos: readonly Repository[]): Promise<void>
 						{ value: 'branchDefault', label: vscode.l10n.t('Use branch default'), description: 'pull.rebase / branch.<name>.rebase' },
 					],
 				},
+				{
+					id: 'saveChanges',
+					type: 'radio',
+					label: vscode.l10n.t('Clean working tree before update:'),
+					value: config('saveChanges', 'stash'),
+					options: [
+						{ value: 'stash', label: vscode.l10n.t('Using stash') },
+						{ value: 'shelve', label: vscode.l10n.t('Using shelf') },
+					],
+				},
 				{ id: 'remember', type: 'checkbox', label: vscode.l10n.t('Don\'t show again'), description: vscode.l10n.t('Can be changed in settings (changeline.update.method).') },
 			],
 			okLabel: 'OK',
@@ -73,6 +83,9 @@ export async function updateProject(repos: readonly Repository[]): Promise<void>
 			return;
 		}
 		method = result.values.method as 'merge' | 'rebase' | 'branchDefault';
+		if (result.values.saveChanges && result.values.saveChanges !== config('saveChanges', 'stash')) {
+			await vscode.workspace.getConfiguration('changeline').update('saveChanges', result.values.saveChanges, vscode.ConfigurationTarget.Global);
+		}
 		await services().context.workspaceState.update('changeline.update.lastMethod', method);
 		if (result.values.remember) {
 			await vscode.workspace.getConfiguration('changeline').update('update.method', method, vscode.ConfigurationTarget.Global);
@@ -110,27 +123,23 @@ export async function updateProject(repos: readonly Repository[]): Promise<void>
 				const cfg = (await repo.getConfig(`branch.${st.branch}.rebase`)) ?? (await repo.getConfig('pull.rebase'));
 				useRebase = !!cfg && cfg !== 'false';
 			}
-			const stashed = hasLocalChanges(repo) ? await repo.stash({ message: vscode.l10n.t('Changeline: uncommitted changes before update') }) : false;
+			const saved = hasLocalChanges(repo) ? await saveLocalChanges(repo, vscode.l10n.t('Update')) : undefined;
 			report(useRebase ? vscode.l10n.t('Rebasing {0}...', repo.name) : vscode.l10n.t('Merging {0}...', repo.name));
 			const outcome = useRebase ? await repo.rebase('@{u}') : await repo.merge('@{u}');
 			await repo.refresh();
 			if (!outcome.ok) {
 				if (outcome.conflicts) {
-					if (stashed) {
-						void vscode.window.showInformationMessage(vscode.l10n.t('Local changes of {0} were stashed before updating. Unstash them after resolving the conflicts.', repo.name));
+					if (saved) {
+						await saved.restore();
 					}
 					void vscode.commands.executeCommand('changeline.resolveConflicts');
 				} else if (outcome.error) {
-					if (stashed) {
-						await restoreStash(repo);
-					}
+					await saved?.restore();
 					await showError(outcome.error, vscode.l10n.t('Update failed for {0}', repo.name));
 				}
 				continue;
 			}
-			if (stashed) {
-				await restoreStash(repo);
-			}
+			await saved?.restore();
 			if (config('update.submodules', true) && fs.existsSync(path.join(repo.root, '.gitmodules'))) {
 				report(vscode.l10n.t('Updating submodules of {0}...', repo.name));
 				await repo.runOp(['submodule', 'update', '--init', '--recursive']).catch((e) => showError(e, vscode.l10n.t('Submodule update failed')));

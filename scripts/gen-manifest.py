@@ -477,6 +477,7 @@ configuration = O(title='Changeline', properties=O([
     ('changeline.annotate.colors', setting('string', 'age', 'Background of annotations.', enum=['age', 'author', 'none'])),
     ('changeline.annotate.nameFormat', setting('string', 'full', 'How author names are shown in annotations (JetBrains "Names").', enum=['full', 'first', 'last', 'initials', 'email'])),
     ('changeline.annotate.ignoreWhitespace', setting('boolean', False, 'Ignore whitespace changes when annotating (git blame -w).')),
+    ('changeline.saveChanges', setting('string', 'stash', 'How local changes are put aside before smart checkout, update and rebase, like *Save changes* in JetBrains IDEs.', enum=['stash', 'shelve'], enumDescriptions=['Stash', 'Shelve'])),
     ('changeline.update.method', setting('string', 'ask', 'How "Update Project" integrates incoming changes.', enum=['ask', 'merge', 'rebase', 'branchDefault'], enumDescriptions=['Ask with the Update Project dialog', 'Merge', 'Rebase', 'Use the branch configuration (pull.rebase / branch.<name>.rebase)'])),
     ('changeline.update.submodules', setting('boolean', True, 'Update submodules (`git submodule update --init --recursive`) after "Update Project".')),
     ('changeline.branches.restoreWorkspace', setting('boolean', True, 'Restore workspace on branch switching like JetBrains IDEs: the editors open on a branch are closed when another branch is checked out and opened again when the branch is checked out again.')),

@@ -2784,6 +2784,19 @@
 					"default": false,
 					"markdownDescription": "%config.annotate.ignoreWhitespace%"
 				},
+				"changeline.saveChanges": {
+					"type": "string",
+					"default": "stash",
+					"markdownDescription": "%config.saveChanges%",
+					"enum": [
+						"stash",
+						"shelve"
+					],
+					"enumDescriptions": [
+						"%config.saveChanges.stash%",
+						"%config.saveChanges.shelve%"
+					]
+				},
 				"changeline.update.method": {
 					"type": "string",
 					"default": "ask",

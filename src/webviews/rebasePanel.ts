@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import type { RebaseTodoEntry, Repository } from '../git/repository';
 import { services } from '../services';
 import type { CommitInfo } from '../shared/types';
-import { showError } from '../util';
+import { config, showError } from '../util';
+import { saveLocalChanges } from '../commands/common';
 import { RpcHandlers, WebviewPanelBase } from './host';
 
 export interface RebaseRequest {
@@ -14,13 +15,15 @@ export interface RebaseRequest {
 }
 
 export async function runInteractiveRebase(repo: Repository, base: string | undefined, entries: RebaseTodoEntry[]): Promise<boolean> {
+	const shelve = config<'stash' | 'shelve'>('saveChanges', 'stash') === 'shelve';
 	if (repo.state.changes.length || repo.state.staged.length) {
-		const choice = await vscode.window.showWarningMessage(vscode.l10n.t('You have local changes. They will be stashed before rebasing and restored afterwards.'), { modal: true }, vscode.l10n.t('Stash and Rebase'));
-		if (choice !== vscode.l10n.t('Stash and Rebase')) {
+		const go = shelve ? vscode.l10n.t('Shelve and Rebase') : vscode.l10n.t('Stash and Rebase');
+		const choice = await vscode.window.showWarningMessage(shelve ? vscode.l10n.t('You have local changes. They will be shelved before rebasing and restored afterwards.') : vscode.l10n.t('You have local changes. They will be stashed before rebasing and restored afterwards.'), { modal: true }, go);
+		if (choice !== go) {
 			return false;
 		}
 	}
-	const stashed = repo.state.changes.length || repo.state.staged.length ? await repo.stash({ message: vscode.l10n.t('Changeline: uncommitted changes before rebase'), includeUntracked: false }) : false;
+	const saved = repo.state.changes.length || repo.state.staged.length ? await saveLocalChanges(repo, vscode.l10n.t('Rebase'), { includeUntracked: false }) : undefined;
 	try {
 		const outcome = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Rebasing...') }, () =>
 			repo.rebaseInteractive(base, entries, services().scriptsDir),
@@ -48,13 +51,10 @@ export async function runInteractiveRebase(repo: Repository, base: string | unde
 		await showError(e, vscode.l10n.t('Rebase failed'));
 		return false;
 	} finally {
-		if (stashed && repo.state.operation === 'none') {
-			const r = await repo.stashApply('stash@{0}', { pop: true });
-			if (!r.ok) {
-				void vscode.window.showWarningMessage(vscode.l10n.t('Your stashed changes could not be restored automatically; they are kept in the stash.'));
-			}
-		} else if (stashed) {
-			void vscode.window.showInformationMessage(vscode.l10n.t('Your local changes were stashed before the rebase ("Changeline: uncommitted changes before rebase"). Unstash them when the rebase is done.'));
+		if (saved && repo.state.operation === 'none') {
+			await saved.restore();
+		} else if (saved) {
+			void vscode.window.showInformationMessage(saved.kind === 'shelf' ? vscode.l10n.t('Your local changes were shelved before the rebase. Unshelve them when the rebase is done.') : vscode.l10n.t('Your local changes were stashed before the rebase ("Changeline: uncommitted changes before rebase"). Unstash them when the rebase is done.'));
 		}
 	}
 }

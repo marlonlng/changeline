@@ -49,8 +49,8 @@ It talks to the `git` executable directly and works next to (or instead of) VS C
 | Log context menu | Copy Revision, Create Patch, Cherry-Pick, Checkout Revision, Show Repository at Revision, Compare with Local, Reset Current Branch to Here, Revert, Undo Commit, Edit Commit Message, Fixup, Squash Into, Squash Commits, Drop Commits, Interactively Rebase from Here, Push All up to Here, New Branch, New Tag, Go to Parent/Child, Open in Browser |
 | Changed files context menu in the log | Show Diff, Compare with Local, Edit Source, Open Repository Version, Revert / Cherry-Pick Selected Changes, Show History up to Here, Annotate Revision |
 | Branches popup (status bar widget) | Status bar branch item or *Branches…*: Recent / Local / Remote / Tags, Group by Prefix folders, favorites (★), incoming/outgoing markers, worktrees, all branch actions (Checkout, Checkout and Update, Checkout in New Worktree, New Branch from…, Checkout and Rebase onto, Compare with, Show Diff with Working Tree, Rebase onto, Merge into, Pull using Rebase/Merge, Update, Push, Rename, Edit Tracking, Delete with *Restore*) |
-| Smart Checkout / Smart Merge | Offered automatically when local changes would be overwritten |
-| Update Project (⌘T) with merge or rebase | *Update Project…*, summary with *View Commits* / *Show Files* |
+| Smart Checkout / Smart Merge | Offered automatically when local changes would be overwritten; local changes are stashed or shelved (setting `changeline.saveChanges`, as in JetBrains) |
+| Update Project (⌘T) with merge or rebase | *Update Project…* with "Clean working tree before update: Using Stash / Using Shelf", summary with *View Commits* / *Show Files* |
 | Push dialog (⇧⌘K) | Commits per repository, editable target branch, *New* marker, push tags, run hooks, Force Push (with lease, protected branches), rejected-push handling (Rebase / Merge) |
 | Pull, Fetch, Manage Remotes, Clone, Create Git Repository | Commands of the same name |
 | Merge / Rebase / Reset HEAD / New Tag / Stash / Unstash dialogs | JetBrains-style dialogs |
