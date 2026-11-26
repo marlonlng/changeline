@@ -36,6 +36,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | Generate commit message (AI Assistant) | Sparkle button, uses VS Code's language model API (e.g. GitHub Copilot) when one is installed | E (prompt, streaming and diff with a stand-in model) |
 | Author, Sign-off, Run Git hooks, GPG signing | Options (gear) | I (args), V (options panel) |
 | Before commit: Reformat code, Optimize imports, Analyze code, Check TODO, Run tests | Options (gear); the formatter, organize-imports action, problems and task of the workspace | E |
+| Run advanced checks after a commit is done (tests and code analysis in the background, warning with Show Problems) | Options (gear) | E |
 | Detached HEAD warning, CRLF warning (Windows) | Modal before commit | E |
 | Commit / Commit and Push | Buttons, ⌘↩ / ⌥⌘↩ | E, V (Commit button), S 01 |
 | Commit during merge / cherry-pick | Real index commit with MERGE_MSG prefill | I |

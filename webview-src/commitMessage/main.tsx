@@ -19,6 +19,7 @@ interface Options {
 	optimizeImports: boolean;
 	gpgSign: boolean;
 	runTests: boolean;
+	checksAfterCommit: boolean;
 }
 
 interface ViewState {
@@ -309,6 +310,7 @@ function App() {
 					<Checkbox checked={st.options.analyzeCode} onChange={(v) => setOption('analyzeCode', v)} label={t('Analyze code (problems in changed files)')} />
 					<Checkbox checked={st.options.checkTodo} onChange={(v) => setOption('checkTodo', v)} label={t('Check TODO')} />
 					<Checkbox checked={st.options.runTests} onChange={(v) => setOption('runTests', v)} label={t('Run tests (VS Code task)')} />
+					<Checkbox checked={st.options.checksAfterCommit} onChange={(v) => setOption('checksAfterCommit', v)} label={t('Run advanced checks after a commit is done')} />
 				</div>
 			)}
 			<div class="footer">

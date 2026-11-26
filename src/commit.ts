@@ -20,6 +20,7 @@ export interface CommitOptions {
 	optimizeImports: boolean;
 	gpgSign: boolean;
 	runTests: boolean;
+	checksAfterCommit: boolean;
 }
 
 export interface CommitRequest {
@@ -121,6 +122,7 @@ export class CommitController implements vscode.Disposable {
 			optimizeImports: st.get('changeline.commit.optimizeImports', config('commit.optimizeImports', false)),
 			gpgSign: st.get('changeline.commit.gpgSign', false),
 			runTests: st.get('changeline.commit.runTests', false),
+			checksAfterCommit: st.get('changeline.commit.checksAfterCommit', false),
 		};
 	}
 
@@ -263,7 +265,8 @@ export class CommitController implements vscode.Disposable {
 			if (!(await this.checkLineSeparators(repos, [...filesByRepo.values()].flat()))) {
 				return false;
 			}
-			if (!(await this.runChecks([...filesByRepo.values()].flat(), req.options))) {
+			const after = req.options.checksAfterCommit && (req.options.runTests || req.options.analyzeCode);
+			if (!(await this.runChecks([...filesByRepo.values()].flat(), after ? { ...req.options, runTests: false, analyzeCode: false } : req.options))) {
 				return false;
 			}
 			const committed: { repo: Repository; count: number }[] = [];
@@ -294,6 +297,9 @@ export class CommitController implements vscode.Disposable {
 			const subject = message.split('\n')[0];
 			const count = committed.reduce((n, c) => n + c.count, 0);
 			void vscode.window.showInformationMessage(vscode.l10n.t(count === 1 ? '{0} file committed: {1}' : '{0} files committed: {1}', count, subject));
+			if (after) {
+				this.postCommitChecks = this.runChecksAfterCommit([...filesByRepo.values()].flat(), req.options, subject);
+			}
 			await this.cleanupChangelists();
 			if (req.push) {
 				await vscode.commands.executeCommand('changeline.push', committed.length === 1 ? committed[0].repo : undefined);
@@ -428,8 +434,68 @@ export class CommitController implements vscode.Disposable {
 		}
 	}
 
+	/** Checks running after the last commit (JetBrains: "Run advanced checks after a commit is done"); tests can await them. */
+	postCommitChecks: Promise<string[]> = Promise.resolve([]);
+
+	/** Runs tests and code analysis after the commit in the background and reports problems without blocking the commit. */
+	private async runChecksAfterCommit(files: FileNode[], options: CommitOptions, subject: string): Promise<string[]> {
+		return vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: vscode.l10n.t('Running commit checks...') }, async () => {
+			const problems: string[] = [];
+			if (options.runTests) {
+				const result = await this.testTask();
+				if (result && result.exitCode !== 0) {
+					problems.push(vscode.l10n.t('Tests failed ("{0}" exited with code {1}).', result.label, result.exitCode ?? '?'));
+				}
+			}
+			if (options.analyzeCode) {
+				const { errors, warnings } = this.diagnostics(files);
+				if (errors || warnings) {
+					problems.push(vscode.l10n.t('Code analysis found {0} and {1} in the files to commit.', plural(errors, '{0} error', '{0} errors'), plural(warnings, '{0} warning', '{0} warnings')));
+				}
+			}
+			if (problems.length) {
+				void vscode.window.showWarningMessage(vscode.l10n.t('Commit checks failed for "{0}": {1}', subject, problems.join(' ')), vscode.l10n.t('Show Problems')).then((choice) => {
+					if (choice) {
+						void vscode.commands.executeCommand('workbench.actions.view.problems');
+					}
+				});
+			} else {
+				vscode.window.setStatusBarMessage(vscode.l10n.t('Commit checks passed'), 5000);
+			}
+			return problems;
+		});
+	}
+
+	private diagnostics(files: FileNode[]): { errors: number; warnings: number } {
+		let errors = 0;
+		let warnings = 0;
+		for (const f of files) {
+			for (const d of vscode.languages.getDiagnostics(vscode.Uri.file(f.abs))) {
+				if (d.severity === vscode.DiagnosticSeverity.Error) {
+					errors++;
+				} else if (d.severity === vscode.DiagnosticSeverity.Warning) {
+					warnings++;
+				}
+			}
+		}
+		return { errors, warnings };
+	}
+
 	/** "Run Tests" before commit: runs a VS Code task and asks to continue when it fails. */
 	private async runTestTask(): Promise<boolean> {
+		const result = await this.testTask();
+		if (!result) {
+			return false;
+		}
+		if (result.exitCode === 0) {
+			return true;
+		}
+		const choice = await vscode.window.showWarningMessage(vscode.l10n.t('Tests failed ("{0}" exited with code {1}).', result.label, result.exitCode ?? '?'), { modal: true }, vscode.l10n.t('Commit Anyway'));
+		return choice === vscode.l10n.t('Commit Anyway');
+	}
+
+	/** Runs the test task (asking for it once); undefined when no task was chosen. */
+	private async testTask(): Promise<{ label: string; exitCode: number | undefined } | undefined> {
 		const tasks = await vscode.tasks.fetchTasks();
 		let label = config<string>('commit.testTask', '');
 		let task = tasks.find((t) => t.name === label || `${t.source}: ${t.name}` === label);
@@ -439,7 +505,7 @@ export class CommitController implements vscode.Disposable {
 				{ title: vscode.l10n.t('Run Tests before Commit'), placeHolder: vscode.l10n.t('Select the task that runs your tests (saved in changeline.commit.testTask)') },
 			);
 			if (!pick) {
-				return false;
+				return undefined;
 			}
 			task = pick.task;
 			label = task.name;
@@ -454,11 +520,7 @@ export class CommitController implements vscode.Disposable {
 				}
 			});
 		});
-		if (exitCode === 0) {
-			return true;
-		}
-		const choice = await vscode.window.showWarningMessage(vscode.l10n.t('Tests failed ("{0}" exited with code {1}).', label, exitCode ?? '?'), { modal: true }, vscode.l10n.t('Commit Anyway'));
-		return choice === vscode.l10n.t('Commit Anyway');
+		return { label, exitCode };
 	}
 
 	private async runChecks(files: FileNode[], options: CommitOptions): Promise<boolean> {
@@ -466,17 +528,7 @@ export class CommitController implements vscode.Disposable {
 			return false;
 		}
 		if (options.analyzeCode) {
-			let errors = 0;
-			let warnings = 0;
-			for (const f of files) {
-				for (const d of vscode.languages.getDiagnostics(vscode.Uri.file(f.abs))) {
-					if (d.severity === vscode.DiagnosticSeverity.Error) {
-						errors++;
-					} else if (d.severity === vscode.DiagnosticSeverity.Warning) {
-						warnings++;
-					}
-				}
-			}
+			const { errors, warnings } = this.diagnostics(files);
 			if (errors || warnings) {
 				const choice = await vscode.window.showWarningMessage(
 					vscode.l10n.t('Code analysis found {0} and {1} in the files to commit.', plural(errors, '{0} error', '{0} errors'), plural(warnings, '{0} warning', '{0} warnings')),

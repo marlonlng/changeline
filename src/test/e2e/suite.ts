@@ -669,6 +669,14 @@ test('before-commit checks: analyze code, check TODO, run tests, reformat, optim
 		assert.equal(await run('tested', { runTests: true }), true);
 		assert.equal(await head('chk.txt'), 'x4\n');
 
+		await changeOnly('chk.txt', 'x5\n');
+		await setting('commit.testTask', 'jg-fail', vscode.ConfigurationTarget.Workspace);
+		asked.length = 0;
+		assert.equal(await run('post-checked', { runTests: true, checksAfterCommit: true }), true, 'advanced checks after the commit do not block it');
+		assert.equal(await head('chk.txt'), 'x5\n');
+		assert.match((await commit.postCommitChecks).join(), /Tests failed \("jg-fail" exited with code 3\)/);
+		await waitFor(() => asked.some((m) => /Commit checks failed for "post-checked"/.test(m)), 'warning after the commit');
+
 		await commitFile('imp.fmt', 'b\na\n', 'add imp');
 		const selector = { pattern: '**/*.fmt' };
 		const fmt = vscode.languages.registerDocumentFormattingEditProvider(selector, {
