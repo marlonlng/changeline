@@ -1000,5 +1000,7 @@
 	"Compact References View": "Kompakte Referenzansicht",
 	"Show Tag Names": "Tag-Namen anzeigen",
 	"Show Hash Column": "Hash-Spalte anzeigen",
-	"Relative Dates": "Relative Datumsangaben"
+	"Relative Dates": "Relative Datumsangaben",
+	"Show Diff Preview": "Diff-Vorschau anzeigen",
+	"Select a file to see its diff": "Datei auswählen, um ihren Diff zu sehen"
 }

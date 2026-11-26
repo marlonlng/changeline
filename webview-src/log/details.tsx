@@ -3,9 +3,10 @@ import { FileTree, IconButton, useSplitter } from '../common/components';
 import { fullDate } from '../common/format';
 import { call, getState, patchState } from '../common/rpc';
 import type { Details } from './types';
+import type { FileChange } from '../../src/shared/types';
 import { plural, t, tx } from '../common/l10n';
 
-export function DetailsPane(props: { details?: Details; loading: boolean; logId: string; highlightPath?: string; parentIndex: number; onParentChange: (index: number) => void; onNavigate: (hash: string) => void }) {
+export function DetailsPane(props: { details?: Details; loading: boolean; logId: string; highlightPath?: string; parentIndex: number; onParentChange: (index: number) => void; onNavigate: (hash: string) => void; onFileSelect?: (file: FileChange | undefined) => void }) {
 	const [groupByDir, setGroupByDir] = useState<boolean>(getState<{ detailsGroup: boolean }>().detailsGroup ?? true);
 	const [selected, setSelected] = useState<string[]>([]);
 	const [containing, setContaining] = useState<{ branches: string[]; tags: string[] } | 'loading' | undefined>(undefined);
@@ -15,8 +16,10 @@ export function DetailsPane(props: { details?: Details; loading: boolean; logId:
 
 	useEffect(() => {
 		setContaining(undefined);
-		setSelected(props.highlightPath ? [props.highlightPath] : []);
-	}, [d]);
+		const initial = props.highlightPath ?? (props.onFileSelect ? d?.files[0]?.path : undefined);
+		setSelected(initial ? [initial] : []);
+		props.onFileSelect?.(initial ? d?.files.find((f) => f.path === initial) : undefined);
+	}, [d, !!props.onFileSelect]);
 
 	if (!d) {
 		return <div class="details-pane"><div class="jg-empty">{props.loading ? t('Loading…') : t('Select a commit to view changes')}</div></div>;
@@ -52,7 +55,10 @@ export function DetailsPane(props: { details?: Details; loading: boolean; logId:
 					groupByDir={groupByDir}
 					selected={selected}
 					highlight={props.highlightPath}
-					onSelect={setSelected}
+					onSelect={(paths) => {
+						setSelected(paths);
+						props.onFileSelect?.(paths.length === 1 ? d.files.find((f) => f.path === paths[0]) : undefined);
+					}}
 					onOpen={(f) => call('openDiff', { hashes, path: f.path, files: d.files, parentIndex: props.parentIndex })}
 					context={(f) => ({ webviewSection: 'logFile', logId: props.logId, path: f.path, origPath: f.origPath, status: f.status, hash: d.commits[0].hash, multiple: d.commits.length > 1 })}
 					emptyText={t('No changes')}

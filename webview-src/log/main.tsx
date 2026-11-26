@@ -12,6 +12,8 @@ import { GraphCell, ROW_HEIGHT } from './graph';
 import type { CommitInfo, Details, Filters, InitData, RefLabel, RefsPayload } from './types';
 import { plural, t } from '../common/l10n';
 import { mountDialogLayer } from '../common/dialog';
+import { DiffPreview, PreviewData } from '../common/diffPreview';
+import type { FileChange } from '../../src/shared/types';
 
 interface ViewOptions {
 	showBranches: boolean;
@@ -24,6 +26,7 @@ interface ViewOptions {
 	longEdges: boolean;
 	compactRefs: boolean;
 	tagNames: boolean;
+	showDiffPreview: boolean;
 	dateFormat: 'relative' | 'absolute';
 	colAuthor: number;
 	colDate: number;
@@ -135,6 +138,7 @@ function App() {
 		longEdges: saved.longEdges ?? false,
 		compactRefs: saved.compactRefs ?? false,
 		tagNames: saved.tagNames ?? false,
+		showDiffPreview: saved.showDiffPreview ?? false,
 		dateFormat: saved.dateFormat ?? 'relative',
 		colAuthor: saved.colAuthor ?? 130,
 		colDate: saved.colDate ?? 130,
@@ -142,6 +146,10 @@ function App() {
 	});
 	const [branchWidth, onBranchSplit] = useSplitter('branches', 200, { min: 120, max: 600 });
 	const [detailsWidth, onDetailsSplit] = useSplitter('details', 340, { min: 180, max: 900, invert: true });
+	const [previewWidth, onPreviewSplit] = useSplitter('preview', 560, { min: 240, max: 1600, invert: true });
+	const [previewFile, setPreviewFile] = useState<FileChange | undefined>(undefined);
+	const [preview, setPreview] = useState<PreviewData | undefined>(undefined);
+	const [previewLoading, setPreviewLoading] = useState(false);
 	const tableRef = useRef<HTMLDivElement>(null);
 	const rootRef = useRef<HTMLDivElement>(null);
 	const [totalWidth, setTotalWidth] = useState(window.innerWidth);
@@ -299,6 +307,21 @@ function App() {
 			}
 		}, 120);
 	};
+
+	useEffect(() => {
+		if (!opts.showDiffPreview || !previewFile || !details) {
+			setPreview(undefined);
+			return;
+		}
+		let stale = false;
+		setPreviewLoading(true);
+		call<PreviewData | undefined>('fileDiff', { hashes: details.commits.map((c) => c.hash), path: previewFile.path, origPath: previewFile.origPath, status: previewFile.status, parentIndex })
+			.then((d) => !stale && setPreview(d), () => !stale && setPreview(undefined))
+			.finally(() => !stale && setPreviewLoading(false));
+		return () => {
+			stale = true;
+		};
+	}, [opts.showDiffPreview, previewFile, details, parentIndex]);
 
 	/** Scrolls to a commit by hash, using the currently visible (possibly collapsed) list. */
 	const scrollToHash = (hash: string) => {
@@ -466,7 +489,9 @@ function App() {
 	const showBranches = opts.showBranches && !isHistory;
 	const bw = Math.min(branchWidth, Math.max(120, totalWidth * 0.24));
 	const dw = Math.min(detailsWidth, Math.max(180, totalWidth * 0.36));
-	const centerWidth = totalWidth - (showBranches ? bw : 0) - (opts.showDetails ? dw : 0);
+	const showPreview = opts.showDetails && opts.showDiffPreview;
+	const pw = Math.min(previewWidth, Math.max(240, totalWidth * 0.45));
+	const centerWidth = totalWidth - (showBranches ? bw : 0) - (opts.showDetails ? dw : 0) - (showPreview ? pw : 0);
 	const showAuthor = centerWidth > 470;
 	const showDate = centerWidth > 360;
 	const showHashCol = opts.showHash && centerWidth > 600;
@@ -601,6 +626,7 @@ function App() {
 							}}
 						/>
 						<IconButton icon="layout-sidebar-right" title={t('Show Details')} active={opts.showDetails} onClick={() => setOpt({ showDetails: !opts.showDetails })} />
+						<IconButton icon="diff" title={t('Show Diff Preview')} active={opts.showDiffPreview} onClick={() => setOpt({ showDiffPreview: !opts.showDiffPreview, showDetails: true })} />
 					</div>
 					{error && <div class="banner jg-error">{error}</div>}
 					<div class="table-header" style={{ gridTemplateColumns: gridCols }}>
@@ -726,8 +752,17 @@ function App() {
 										void load(filters, true, allCommits);
 									}
 								}}
+								onFileSelect={opts.showDiffPreview ? setPreviewFile : undefined}
 							/>
 						</div>
+						{showPreview && (
+							<>
+								<div class="jg-splitter-v" onMouseDown={onPreviewSplit as any} />
+								<div class="preview-pane" style={{ width: `${pw}px` }}>
+									<DiffPreview data={preview} loading={previewLoading} />
+								</div>
+							</>
+						)}
 					</>
 				)}
 			</div>

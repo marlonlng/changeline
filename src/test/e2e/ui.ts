@@ -307,6 +307,10 @@ test('log: graph, labels, details, merge parents, text filter, highlight, collap
 	await v.select('.details-pane select.parent-select', '1');
 	await v.waitFor(`document.querySelector('.details-title')?.textContent === '1 file changed'`, 'changes relative to the second parent', 10000, `document.querySelector('.details-title')?.textContent`);
 	assert.match(await v.text('.commit-info .subject'), /^Merge branch 'theirs-br'/);
+	await v.click('button[title="Show Diff Preview"]');
+	await v.waitFor(`document.querySelectorAll('.preview-pane .pane.r .ch').length > 0 && document.querySelectorAll('.preview-pane .bands path').length > 0`, 'diff preview of the first changed file next to the details');
+	await v.click('button[title="Show Diff Preview"]');
+	await v.waitFor(`!document.querySelector('.preview-pane')`, 'diff preview hidden');
 
 	const all = await rows();
 	await v.type('.search input[type="search"]', 'side');

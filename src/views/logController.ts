@@ -3,7 +3,8 @@ import { commitFileTarget, openDiff, revisionTarget } from '../diff';
 import type { LogQuery, Repository } from '../git/repository';
 import { services } from '../services';
 import type { CommitInfo, FileChange } from '../shared/types';
-import { config, escapeRegex } from '../util';
+import { isBinary } from '../shared/diff';
+import { config, escapeRegex, shortHash } from '../util';
 import { DialogOverlay, DialogSurface, withDialogOrigin } from '../webviews/dialogOverlay';
 import { renderWebviewHtml, RpcChannel, webviewOptions } from '../webviews/host';
 
@@ -49,6 +50,8 @@ export async function toggleFavoriteBranch(repo: Repository, name: string): Prom
 	await st.update(FAVORITES_KEY, all);
 	LogController.refreshAll(repo);
 }
+
+const PREVIEW_LIMIT = 2_000_000;
 
 export class LogController implements vscode.Disposable {
 	private static registry = new Map<string, LogController>();
@@ -288,6 +291,22 @@ export class LogController implements vscode.Disposable {
 					const base = oldest.parents[0] ?? '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 					await openDiff({ targets: p.files.map((f) => revisionTarget(repo, base, commits[0].hash, f)), index });
 				}
+			},
+			fileDiff: async (p: { hashes: string[]; path: string; origPath?: string; status: string; parentIndex?: number }) => {
+				const repo = this.repo;
+				if (!repo || !p.hashes.length) {
+					return undefined;
+				}
+				const commits = await Promise.all(p.hashes.map((h) => repo.getCommit(h)));
+				const newest = commits[0];
+				const base = commits.length === 1 ? newest.parents[Math.min(p.parentIndex ?? 0, Math.max(0, newest.parents.length - 1))] : commits[commits.length - 1].parents[0];
+				const [left, right] = await Promise.all([
+					base && p.status !== 'A' ? repo.getContentOrEmpty(base, p.origPath ?? p.path) : undefined,
+					p.status !== 'D' ? repo.getContentOrEmpty(newest.hash, p.path) : undefined,
+				]);
+				const binary = [left, right].some((b) => !!b && (isBinary(b) || b.length > PREVIEW_LIMIT));
+				const text = (b: Buffer | undefined) => (b && !binary ? b.toString('utf8') : null);
+				return { path: p.path, left: text(left), right: text(right), leftTitle: base ? shortHash(base) : vscode.l10n.t('Empty'), rightTitle: shortHash(newest.hash), binary };
 			},
 			openCommitDiffForPath: async (p: { hash: string }) => {
 				const repo = this.repo;
