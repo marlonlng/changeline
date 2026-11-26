@@ -3,10 +3,31 @@ import { FileTree, IconButton, useSplitter } from '../common/components';
 import { fullDate } from '../common/format';
 import { call, getState, patchState } from '../common/rpc';
 import type { Details } from './types';
+import { IssueRule, linkIssues } from '../../src/shared/issueLinks';
 import type { FileChange } from '../../src/shared/types';
 import { plural, t, tx } from '../common/l10n';
 
-export function DetailsPane(props: { details?: Details; loading: boolean; logId: string; highlightPath?: string; parentIndex: number; onParentChange: (index: number) => void; onNavigate: (hash: string) => void; onFileSelect?: (file: FileChange | undefined) => void }) {
+/** Text with issue references as links to the tracker. */
+export function IssueText({ text, rules }: { text: string; rules?: IssueRule[] }) {
+	if (!rules?.length) {
+		return <>{text}</>;
+	}
+	return (
+		<>
+			{linkIssues(text, rules).map((p) =>
+				p.url ? (
+					<a class="jg-link issue-link" title={p.url} onClick={() => call('openUrl', { url: p.url })}>
+						{p.text}
+					</a>
+				) : (
+					p.text
+				),
+			)}
+		</>
+	);
+}
+
+export function DetailsPane(props: { details?: Details; loading: boolean; logId: string; highlightPath?: string; parentIndex: number; onParentChange: (index: number) => void; onNavigate: (hash: string) => void; onFileSelect?: (file: FileChange | undefined) => void; issueRules?: IssueRule[] }) {
 	const [groupByDir, setGroupByDir] = useState<boolean>(getState<{ detailsGroup: boolean }>().detailsGroup ?? true);
 	const [selected, setSelected] = useState<string[]>([]);
 	const [containing, setContaining] = useState<{ branches: string[]; tags: string[] } | 'loading' | undefined>(undefined);
@@ -68,8 +89,14 @@ export function DetailsPane(props: { details?: Details; loading: boolean; logId:
 			<div class="jg-scroll details-message" style={{ height: `${messageHeight}px` }}>
 				{single ? (
 					<div class="commit-info">
-						<div class="subject">{single.subject}</div>
-						{single.body.split('\n').slice(1).join('\n').trim() && <pre class="body">{single.body.split('\n').slice(1).join('\n').trim()}</pre>}
+						<div class="subject">
+							<IssueText text={single.subject} rules={props.issueRules} />
+						</div>
+						{single.body.split('\n').slice(1).join('\n').trim() && (
+							<pre class="body">
+								<IssueText text={single.body.split('\n').slice(1).join('\n').trim()} rules={props.issueRules} />
+							</pre>
+						)}
 						<div class="meta">
 							<span class="hash" title={t('Click to copy')} onClick={() => call('command', { command: 'changeline.copyText', args: [single.hash] })}>
 								{single.hash.slice(0, 8)}

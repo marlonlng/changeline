@@ -115,3 +115,27 @@ body {
 	flex: 1;
 	font-weight: 600;
 }
+
+.completion .item {
+	padding: 0 10px;
+	max-width: 420px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.completion .item.active {
+	background: var(--vscode-quickInputList-focusBackground, var(--vscode-menu-selectionBackground, var(--jg-selected)));
+	color: var(--vscode-quickInputList-focusForeground, var(--vscode-menu-selectionForeground, inherit));
+}
+
+.issue-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	padding: 2px 2px 4px;
+	font-size: 0.92em;
+}
+
+.issue-links .codicon {
+	font-size: 11px;
+}

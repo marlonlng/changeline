@@ -246,6 +246,28 @@ test('commit message view: inspections, options, commit button, amend, message h
 	await v.type('textarea.message', 'Short subject\nno blank line');
 	await v.waitFor(`[...document.querySelectorAll('.problems .problem')].some((p) => /Missing blank line/.test(p.textContent))`, 'blank line inspection');
 
+	const typeInsert = (value: string) =>
+		v.eval(`(() => { const el = document.querySelector('textarea.message'); el.focus(); el.value = ${JSON.stringify(value)}; el.selectionStart = el.selectionEnd = el.value.length; el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: 'x' })); })()`);
+	await typeInsert('Update b.t');
+	await v.waitFor(`document.querySelector('.completion .item')?.textContent.trim() === 'b.txt'`, 'changed file names complete');
+	await v.key('Enter', {}, 'textarea.message');
+	await v.waitFor(`document.querySelector('textarea.message').value === 'Update b.txt' && !document.querySelector('.completion')`, 'completion accepted');
+
+	const cfg = vscode.workspace.getConfiguration('changeline');
+	await cfg.update('issueNavigation', [{ pattern: 'ABC-\\d+', link: 'https://jira.example/browse/$0' }], vscode.ConfigurationTarget.Global);
+	await cfg.update('commit.wrapWhenTypingReachesRightMargin', true, vscode.ConfigurationTarget.Global);
+	await cfg.update('commit.bodyLineLengthLimit', 20, vscode.ConfigurationTarget.Global);
+	try {
+		await typeInsert('Fix ABC-12');
+		await v.waitFor(`document.querySelector('.issue-links button')?.textContent.trim() === 'ABC-12' && document.querySelector('.issue-links button').title === 'https://jira.example/browse/ABC-12'`, 'issue reference links to the tracker');
+		await typeInsert('Subject\n\nThis body line gets longer than ten');
+		await v.waitFor(`document.querySelector('textarea.message').value === 'Subject\\n\\nThis body line gets\\nlonger than ten'`, 'wrapped at the right margin while typing', 10000, `document.querySelector('textarea.message').value`);
+	} finally {
+		await cfg.update('issueNavigation', undefined, vscode.ConfigurationTarget.Global);
+		await cfg.update('commit.wrapWhenTypingReachesRightMargin', undefined, vscode.ConfigurationTarget.Global);
+		await cfg.update('commit.bodyLineLengthLimit', undefined, vscode.ConfigurationTarget.Global);
+	}
+
 	await v.click('button[title="Commit Options"]');
 	await v.waitFor(`!!document.querySelector('.options')`, 'commit options');
 	const signOff = () => api._test.commit.options.signOff;

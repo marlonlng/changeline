@@ -754,6 +754,7 @@ function App() {
 									}
 								}}
 								onFileSelect={opts.showDiffPreview ? setPreviewFile : undefined}
+								issueRules={init.issueRules}
 							/>
 						</div>
 						{showPreview && (

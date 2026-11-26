@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
 import type { CommitController } from '../commit';
+import { canGenerateMessage, commitDiff, generateCommitMessage } from '../generateMessage';
+import { forgetIssueRules, issueRules } from '../issueLinks';
 import { services } from '../services';
+import type { IssueRule } from '../shared/issueLinks';
 import { capitalize, config } from '../util';
 import { DialogOverlay, withDialogOrigin } from '../webviews/dialogOverlay';
 import { RpcChannel, RpcHandlers, renderWebviewHtml, webviewOptions } from '../webviews/host';
@@ -12,17 +15,64 @@ export class CommitMessageView implements vscode.WebviewViewProvider, vscode.Dis
 	private rpc?: RpcChannel;
 	private disposables: vscode.Disposable[] = [];
 	readonly dialogs = new DialogOverlay((name, data) => this.rpc?.emit(name, data), { visible: () => this.view?.visible === true, reveal: () => this.view?.show(false) });
+	private rules: IssueRule[] = [];
+	private canGenerate = false;
+	private generating = false;
 
 	constructor(private readonly extensionUri: vscode.Uri, private readonly controller: CommitController, private readonly changes: ChangesView) {
 		this.disposables.push(
 			controller.onDidChange((e) => this.push(e.message)),
 			changes.onDidChangeModel(() => this.push(false)),
 			vscode.workspace.onDidChangeConfiguration((e) => {
+				if (e.affectsConfiguration('changeline.issueNavigation') || e.affectsConfiguration('changeline.github') || e.affectsConfiguration('changeline.gitlab')) {
+					forgetIssueRules();
+					void this.loadRules();
+				}
 				if (e.affectsConfiguration('changeline.commit')) {
 					this.push(false);
 				}
 			}),
+			services().repos.onDidChangeRepositories(() => void this.loadRules()),
+			vscode.lm.onDidChangeChatModels(() => void this.checkModels()),
 		);
+		void this.loadRules();
+		void this.checkModels();
+	}
+
+	private async loadRules(): Promise<void> {
+		this.rules = await issueRules(this.controller.targetRepositories()[0] ?? services().repos.current());
+		this.push(false);
+	}
+
+	private async checkModels(): Promise<void> {
+		this.canGenerate = await canGenerateMessage();
+		this.push(false);
+	}
+
+	/** Generates a message for the changes about to be committed and streams it into the message field. */
+	async generate(): Promise<void> {
+		const repo = this.controller.targetRepositories()[0];
+		if (!repo || this.generating) {
+			if (!repo) {
+				void vscode.window.showInformationMessage(vscode.l10n.t('Select the changes to commit first.'));
+			}
+			return;
+		}
+		this.generating = true;
+		this.push(false);
+		try {
+			const paths = this.changes.stagingMode ? undefined : this.changes.includedFiles().filter((f) => f.repo === repo).map((f) => f.change.path);
+			const [diff, recent] = await Promise.all([commitDiff(repo, paths), repo.log({ limit: 10 }).catch(() => [])]);
+			const text = await generateCommitMessage(diff, recent.map((c) => c.subject), (partial) => this.controller.setMessage(partial));
+			if (text === undefined) {
+				void vscode.window.showWarningMessage(vscode.l10n.t('No language model is available. Install and sign in to an extension that provides one, for example GitHub Copilot.'));
+			} else {
+				this.controller.setMessage(text);
+			}
+		} finally {
+			this.generating = false;
+			this.push(false);
+		}
 	}
 
 	resolveWebviewView(view: vscode.WebviewView): void {
@@ -54,6 +104,12 @@ export class CommitMessageView implements vscode.WebviewViewProvider, vscode.Dis
 			resolve: () => vscode.commands.executeCommand('changeline.resolveConflicts'),
 			abort: () => vscode.commands.executeCommand('changeline.abortOperation'),
 			continue: () => vscode.commands.executeCommand('changeline.continueOperation'),
+			openUrl: (p: { url: string }) => {
+				if (/^https?:\/\//i.test(p.url)) {
+					void vscode.env.openExternal(vscode.Uri.parse(p.url));
+				}
+			},
+			generate: () => this.generate(),
 		};
 	}
 
@@ -85,6 +141,11 @@ export class CommitMessageView implements vscode.WebviewViewProvider, vscode.Dis
 			subjectLimit: config('commit.subjectLengthLimit', 72),
 			bodyLimit: config('commit.bodyLineLengthLimit', 72),
 			showInspections: config('commit.messageInspections', true),
+			wrapMargin: config('commit.wrapWhenTypingReachesRightMargin', false) ? config('commit.bodyLineLengthLimit', 72) : 0,
+			completions: [...new Set(this.changes.allFiles().flatMap((f) => [f.change.path, f.change.path.slice(f.change.path.lastIndexOf('/') + 1)]))],
+			issueRules: this.rules,
+			canGenerate: this.canGenerate,
+			generating: this.generating,
 		};
 	}
 

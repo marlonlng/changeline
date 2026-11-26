@@ -4,6 +4,7 @@ import type { LogQuery, Repository } from '../git/repository';
 import { services } from '../services';
 import type { CommitInfo, FileChange } from '../shared/types';
 import { isBinary } from '../shared/diff';
+import { issueRules } from '../issueLinks';
 import { config, escapeRegex, shortHash } from '../util';
 import { DialogOverlay, DialogSurface, withDialogOrigin } from '../webviews/dialogOverlay';
 import { renderWebviewHtml, RpcChannel, webviewOptions } from '../webviews/host';
@@ -204,6 +205,7 @@ export class LogController implements vscode.Disposable {
 						showHash: config('log.showHashColumn', false),
 						order: config<'date' | 'topo'>('log.order', 'date'),
 					},
+					issueRules: await issueRules(repo),
 				};
 			},
 			refs: () => {
@@ -290,6 +292,11 @@ export class LogController implements vscode.Disposable {
 					const oldest = commits[commits.length - 1];
 					const base = oldest.parents[0] ?? '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 					await openDiff({ targets: p.files.map((f) => revisionTarget(repo, base, commits[0].hash, f)), index });
+				}
+			},
+			openUrl: (p: { url: string }) => {
+				if (/^https?:\/\//i.test(p.url)) {
+					void vscode.env.openExternal(vscode.Uri.parse(p.url));
 				}
 			},
 			fileDiff: async (p: { hashes: string[]; path: string; origPath?: string; status: string; parentIndex?: number }) => {

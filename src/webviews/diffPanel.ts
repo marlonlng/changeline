@@ -8,6 +8,7 @@ import { applyChunks, chunkKey, diffLines, HighlightMode, isBinary, splitChunks,
 import type { LineChange } from '../shared/lineChanges';
 import { basename, config, samePath } from '../util';
 import { RpcHandlers, WebviewPanelBase } from './host';
+import { issueRules } from '../issueLinks';
 
 const MAX_SIZE = 4 * 1024 * 1024;
 const SETTINGS_KEY = 'changeline.diff.viewSettings';
@@ -147,7 +148,7 @@ export class DiffPanel extends WebviewPanelBase {
 		const s = services();
 		const focus = this.focus;
 		this.focus = undefined;
-		const [leftBuf, rightBuf, commit] = await Promise.all([readSide(t.repo, t.left), readSide(t.repo, t.right), t.commit ? t.repo.getCommit(t.commit).catch(() => undefined) : undefined]);
+		const [leftBuf, rightBuf, commit, rules] = await Promise.all([readSide(t.repo, t.left), readSide(t.repo, t.right), t.commit ? t.repo.getCommit(t.commit).catch(() => undefined) : undefined, t.commit ? issueRules(t.repo) : []]);
 		const binary = (!!leftBuf && isBinary(leftBuf)) || (!!rightBuf && isBinary(rightBuf));
 		const tooLarge = (leftBuf?.length ?? 0) > MAX_SIZE || (rightBuf?.length ?? 0) > MAX_SIZE;
 		const abs = t.repo.absolutePath(t.path);
@@ -201,7 +202,7 @@ export class DiffPanel extends WebviewPanelBase {
 			files: this.ctx.targets.map((x) => ({ path: x.path, status: x.status })),
 			settings: this.settings(),
 			review: t.review ? { title: t.review.title, comments: t.review.comments, pending: t.review.pending() } : undefined,
-			commit: commit && { hash: commit.hash, subject: commit.subject, body: commit.body, author: commit.author, authorEmail: commit.authorEmail, authorDate: commit.authorDate },
+			commit: commit && { hash: commit.hash, subject: commit.subject, body: commit.body, author: commit.author, authorEmail: commit.authorEmail, authorDate: commit.authorDate, issueRules: rules },
 			focus,
 		};
 	}
@@ -295,6 +296,11 @@ export class DiffPanel extends WebviewPanelBase {
 				if (review?.resolve) {
 					review.comments = await review.resolve(p.thread, p.resolved);
 					await this.reload();
+				}
+			},
+			openUrl: (p: { url: string }) => {
+				if (/^https?:\/\//i.test(p.url)) {
+					void vscode.env.openExternal(vscode.Uri.parse(p.url));
 				}
 			},
 			applySuggestion: async (p: { id: string }) => {

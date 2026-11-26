@@ -6,6 +6,8 @@ import type { Repository } from './git/repository';
 import { services } from './services';
 import { config, formatDate, shortHash, showError } from './util';
 import type { CommandContext } from './commands/common';
+import { issueRules } from './issueLinks';
+import { IssueRule, linkIssues } from './shared/issueLinks';
 
 interface Annotation {
 	repo: Repository;
@@ -13,6 +15,7 @@ interface Annotation {
 	revision?: string;
 	lines: BlameLine[];
 	commits: Map<string, BlameCommit>;
+	rules: IssueRule[];
 }
 
 const ENABLED_COMMANDS = ['changeline.showLog', 'changeline.annotate.showDiff', 'changeline.copyText', 'changeline.annotate.previous', 'changeline.annotate.close'];
@@ -89,12 +92,15 @@ export class BlameController implements vscode.Disposable {
 			return;
 		}
 		try {
-			const blame = await repo.blame(path, {
-				contents: !revision && doc.uri.scheme === 'file' ? doc.getText() : undefined,
-				revision,
-				ignoreWhitespace: config('annotate.ignoreWhitespace', false),
-			});
-			this.annotations.set(doc.uri.toString(), { repo, path, revision, lines: blame.lines, commits: blame.commits });
+			const [blame, rules] = await Promise.all([
+				repo.blame(path, {
+					contents: !revision && doc.uri.scheme === 'file' ? doc.getText() : undefined,
+					revision,
+					ignoreWhitespace: config('annotate.ignoreWhitespace', false),
+				}),
+				issueRules(repo),
+			]);
+			this.annotations.set(doc.uri.toString(), { repo, path, revision, lines: blame.lines, commits: blame.commits, rules });
 			for (const e of vscode.window.visibleTextEditors) {
 				if (e.document === doc) {
 					this.render(e);
@@ -214,7 +220,7 @@ export class BlameController implements vscode.Disposable {
 		const args = (x: unknown) => encodeURIComponent(JSON.stringify(x));
 		md.appendMarkdown(`$(git-commit) \`${shortHash(c.hash)}\` **${escapeMd(c.author)}** ${c.authorMail ? `<${escapeMd(c.authorMail)}>` : ''}  \n`);
 		md.appendMarkdown(`${new Date(c.authorTime * 1000).toLocaleString()}\n\n`);
-		md.appendMarkdown(`${escapeMd(c.summary)}\n\n---\n\n`);
+		md.appendMarkdown(`${linkIssues(c.summary, a.rules).map((p) => (p.url ? `[${escapeMd(p.text)}](${p.url})` : escapeMd(p.text))).join('')}\n\n---\n\n`);
 		md.appendMarkdown(
 			[
 				`[$(history) Show in Git Log](command:changeline.showLog?${args([{ repo: a.repo.root, hash: c.hash }])})`,

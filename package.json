@@ -2539,6 +2539,11 @@
 					"default": 72,
 					"markdownDescription": "%config.commit.bodyLineLengthLimit%"
 				},
+				"changeline.commit.wrapWhenTypingReachesRightMargin": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%config.commit.wrapWhenTypingReachesRightMargin%"
+				},
 				"changeline.commit.messageInspections": {
 					"type": "boolean",
 					"default": true,
@@ -2826,6 +2831,26 @@
 					"type": "boolean",
 					"default": false,
 					"markdownDescription": "%config.decorations.explorer%"
+				},
+				"changeline.issueNavigation": {
+					"type": "array",
+					"default": [],
+					"markdownDescription": "%config.issueNavigation%",
+					"items": {
+						"type": "object",
+						"properties": {
+							"pattern": {
+								"type": "string"
+							},
+							"link": {
+								"type": "string"
+							}
+						},
+						"required": [
+							"pattern",
+							"link"
+						]
+					}
 				},
 				"changeline.github.enterpriseHosts": {
 					"type": "array",

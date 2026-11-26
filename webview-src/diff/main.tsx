@@ -4,6 +4,7 @@ import { render } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { HighlightMode, WhitespaceMode } from '../../src/shared/diff';
 import { chunkForLineChange, LineChange } from '../../src/shared/lineChanges';
+import { linkIssues } from '../../src/shared/issueLinks';
 import { buildBlocks, buildModel, DiffData, markClass, renderSides, renderUnified, Settings } from '../common/diffRender';
 import { Checkbox, Icon, IconButton, useKeys } from '../common/components';
 import { basename, dirname, fullDate } from '../common/format';
@@ -337,7 +338,17 @@ function App() {
 			{error && <div class="banner jg-error">{error}</div>}
 			{data.commit && (
 				<div class="commit-info">
-					<div class="commit-message">{data.commit.body.trim() ? `${data.commit.subject}\n\n${data.commit.body.trim()}` : data.commit.subject}</div>
+					<div class="commit-message">
+						{linkIssues(data.commit.body.trim() ? `${data.commit.subject}\n\n${data.commit.body.trim()}` : data.commit.subject, data.commit.issueRules).map((p) =>
+							p.url ? (
+								<a class="jg-link" title={p.url} onClick={() => call('openUrl', { url: p.url })}>
+									{p.text}
+								</a>
+							) : (
+								p.text
+							),
+						)}
+					</div>
 					<div class="jg-muted commit-meta">
 						<Icon name="account" /> {data.commit.author} &lt;{data.commit.authorEmail}&gt; · {fullDate(data.commit.authorDate)} · <span class="commit-hash">{data.commit.hash}</span>
 					</div>

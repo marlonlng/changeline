@@ -30,6 +30,10 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | Group by directory / repository | View toolbar → Group By | E (repository), V (directory) |
 | Commit message editor, Amend, history (⌘M), commit template | Commit Message view | V, S 01, H |
 | Message inspections (subject length, blank line) | Inline warnings | V, H |
+| Completion of changed file names in the commit message (⌃Space or while typing) | Commit Message view | U, V |
+| Issue navigation: issue IDs link to the tracker (`changeline.issueNavigation`, #123 for GitHub / GitLab) | Commit message, log details, annotate tooltip, diff header | U, V |
+| Right margin with "Wrap when typing reaches right margin" | Commit Message view, `changeline.commit.wrapWhenTypingReachesRightMargin` | U, V |
+| Generate commit message (AI Assistant) | Sparkle button, uses VS Code's language model API (e.g. GitHub Copilot) when one is installed | — |
 | Author, Sign-off, Run Git hooks, GPG signing | Options (gear) | I (args), V (options panel) |
 | Before commit: Reformat code, Optimize imports, Analyze code, Check TODO, Run tests | Options (gear); the formatter, organize-imports action, problems and task of the workspace | E |
 | Detached HEAD warning, CRLF warning (Windows) | Modal before commit | E |

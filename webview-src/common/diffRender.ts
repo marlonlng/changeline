@@ -1,6 +1,7 @@
 import MarkdownIt from 'markdown-it';
 import { chunkKey, DiffChunk, diffLines, diffWords, HighlightMode, rangesInLine, splitChunks, splitLines, stripEol, WhitespaceMode } from '../../src/shared/diff';
 import type { LineChange } from '../../src/shared/lineChanges';
+import type { IssueRule } from '../../src/shared/issueLinks';
 import { highlightLines, languageFor, renderSegments, Segment } from './highlight';
 import { language, plural, t } from './l10n';
 
@@ -104,7 +105,7 @@ export interface DiffData {
 	fileList?: string;
 	chunkLists?: Record<string, string>;
 	focus?: LineChange;
-	commit?: { hash: string; subject: string; body: string; author: string; authorEmail: string; authorDate: number };
+	commit?: { hash: string; subject: string; body: string; author: string; authorEmail: string; authorDate: number; issueRules: IssueRule[] };
 }
 
 export interface Model {
