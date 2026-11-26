@@ -425,6 +425,80 @@ test('branch action Checkout and Update checks out a tracked branch and pulls it
 	}
 });
 
+test('partial changelists: new changes go to the active changelist, edited chunks keep theirs', async () => {
+	const repo = mainRepo();
+	const cl = api._test.services().changelists;
+	const { chunkKey, diffLines, splitLines } = await import('../../shared/diff');
+	const lines = Array.from({ length: 12 }, (_, i) => `line ${i + 1}`);
+	await commitFile('track.txt', lines.join('\n') + '\n', 'add track');
+	const abs = repo.absolutePath('track.txt');
+	const other = cl.create('Other track');
+	const write = async (edit: (l: string[]) => void) => {
+		const next = [...lines];
+		edit(next);
+		fs.writeFileSync(abs, next.join('\n') + '\n');
+		await repo.refresh();
+		return next;
+	};
+	const keyOf = (next: string[], line: number) => {
+		const o = splitLines(lines.join('\n') + '\n');
+		const n = splitLines(next.join('\n') + '\n');
+		const c = diffLines(o, n).find((x) => x.newStart <= line && line < Math.max(x.newEnd, x.newStart + 1))!;
+		return chunkKey(c, o, n);
+	};
+	try {
+		await write((l) => (l[1] = 'line 2 changed'));
+		await waitFor(() => api._test.changesView.allFiles().some((f) => f.abs === abs), 'track.txt changed');
+		cl.move([abs], other.id);
+		await new Promise((r) => setTimeout(r, 400));
+		await repo.refresh();
+		await new Promise((r) => setTimeout(r, 400));
+		const next = await write((l) => {
+			l[1] = 'line 2 changed';
+			l[9] = 'line 10 new change';
+		});
+		await waitFor(() => cl.chunkListOf(abs, keyOf(next, 9)) === cl.active.id, 'the new change went to the active changelist', 10000);
+		assert.equal(cl.chunkListOf(abs, keyOf(next, 1)), other.id, 'the earlier change stayed in its changelist');
+		const edited = await write((l) => {
+			l[1] = 'line 2 changed again';
+			l[9] = 'line 10 new change';
+		});
+		await waitFor(() => cl.chunkListOf(abs, keyOf(edited, 1)) === other.id && cl.chunkListOf(abs, keyOf(edited, 9)) === cl.active.id, 'edited chunks keep their changelists', 10000);
+	} finally {
+		await repo.restore(['track.txt']);
+		await repo.refresh();
+		cl.remove(other.id);
+	}
+});
+
+test('restore workspace on branch switching reopens the editors of a branch', async () => {
+	const repo = mainRepo();
+	const original = repo.state.branch!;
+	await setting('branches.restoreWorkspace', true);
+	const labels = () => vscode.window.tabGroups.all.flatMap((g) => g.tabs.map((t) => t.label)).sort();
+	try {
+		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+		await vscode.window.showTextDocument(vscode.Uri.file(repo.absolutePath('a.txt')), { preview: false });
+		await repo.run(['checkout', '-q', '-b', 'ws-branch']);
+		await repo.refresh();
+		await waitFor(() => repo.state.branch === 'ws-branch', 'on ws-branch');
+		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+		await vscode.window.showTextDocument(vscode.Uri.file(repo.absolutePath('b.txt')), { preview: false });
+		await repo.run(['checkout', '-q', original]);
+		await repo.refresh();
+		await waitFor(() => JSON.stringify(labels()) === JSON.stringify(['a.txt']), `editors of ${original} restored`, 10000);
+		await repo.run(['checkout', '-q', 'ws-branch']);
+		await repo.refresh();
+		await waitFor(() => JSON.stringify(labels()) === JSON.stringify(['b.txt']), 'editors of ws-branch restored', 10000);
+	} finally {
+		await setting('branches.restoreWorkspace', undefined);
+		await repo.run(['checkout', '-q', original]).catch(() => undefined);
+		await repo.run(['branch', '-D', 'ws-branch']).catch(() => undefined);
+		await repo.refresh();
+		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+	}
+});
+
 test('review comments in the editor: threads, review comment, reply, resolve', async () => {
 	const { PrEditorComments } = await import('../../views/prEditorComments');
 	const repo = mainRepo();

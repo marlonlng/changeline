@@ -2804,6 +2804,11 @@
 					"default": true,
 					"markdownDescription": "%config.update.submodules%"
 				},
+				"changeline.branches.restoreWorkspace": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%config.branches.restoreWorkspace%"
+				},
 				"changeline.branches.syncControl": {
 					"type": "boolean",
 					"default": true,

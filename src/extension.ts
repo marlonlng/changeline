@@ -33,6 +33,7 @@ import { StatusDecorationProvider } from './views/decorations';
 import { LogViewProvider } from './views/logController';
 import { createPullRequest, PullRequestsView } from './views/pullRequestsView';
 import { ScmIntegration } from './views/scmProvider';
+import { BranchWorkspace } from './branchWorkspace';
 import { ShelfView } from './views/shelfView';
 import { StashView } from './views/stashView';
 
@@ -116,6 +117,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Change
 	const blame = new BlameController();
 	const statusBar = new StatusBar();
 	const scm = new ScmIntegration();
+	context.subscriptions.push(new BranchWorkspace(context.workspaceState));
 	context.subscriptions.push(
 		changesView,
 		commit,

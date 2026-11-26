@@ -4,7 +4,7 @@ import type { Changelist } from '../changelists';
 import type { Repository } from '../git/repository';
 import { services } from '../services';
 import type { FileChange } from '../shared/types';
-import { basename, config, dirname, plural, statusLabel } from '../util';
+import { basename, config, dirname, plural, samePath, statusLabel } from '../util';
 import { workingChunks } from '../chunks';
 import { changeUri } from './decorations';
 
@@ -84,6 +84,7 @@ export class ChangesView implements vscode.TreeDataProvider<ChangeNode>, vscode.
 				this.scheduleRebuild();
 				void this.refreshChunkKeys();
 			}),
+			this.watchChangedFiles(),
 			vscode.workspace.onDidChangeConfiguration((e) => {
 				if (e.affectsConfiguration('changeline.changes') || e.affectsConfiguration('changeline.commit.useStagingArea')) {
 					this.scheduleRebuild();
@@ -315,18 +316,50 @@ export class ChangesView implements vscode.TreeDataProvider<ChangeNode>, vscode.
 
 	private chunkKeys = new Map<string, string[]>();
 
-	private async refreshChunkKeys(): Promise<void> {
+	private chunkRefresh: Promise<void> = Promise.resolve();
+	private chunkTimer?: NodeJS.Timeout;
+
+	/** Edits of already changed files do not change the git status, so chunk changelists follow them through a file watcher. */
+	private watchChangedFiles(): vscode.Disposable {
+		const watcher = vscode.workspace.createFileSystemWatcher('**/*', true, false, true);
+		watcher.onDidChange((uri) => {
+			const s = services();
+			const repo = s.repos.getRepository(uri);
+			if (!repo || s.changelists.all.length < 2 || !repo.state.changes.some((c) => samePath(repo.absolutePath(c.path), uri.fsPath))) {
+				return;
+			}
+			if (this.chunkTimer) {
+				clearTimeout(this.chunkTimer);
+			}
+			this.chunkTimer = setTimeout(() => void this.refreshChunkKeys(), 300);
+		});
+		return watcher;
+	}
+
+	private refreshChunkKeys(): Promise<void> {
+		this.chunkRefresh = this.chunkRefresh.then(() => this.doRefreshChunkKeys()).catch(() => undefined);
+		return this.chunkRefresh;
+	}
+
+	private async doRefreshChunkKeys(): Promise<void> {
 		const s = services();
 		let changed = false;
 		const seen = new Set<string>();
+		const track = s.changelists.all.length > 1 && !this.stagingMode;
 		for (const repo of s.repos.repositories) {
 			for (const c of repo.state.changes) {
 				const abs = repo.absolutePath(c.path);
+				if (!track && !s.changelists.hasPartialLists(abs)) {
+					continue;
+				}
+				const chunks = await workingChunks(repo, c.path);
+				if (track && chunks && c.status === 'M') {
+					s.changelists.trackChunks(abs, chunks.chunks.map((x, i) => ({ key: chunks.keys[i], oldStart: x.oldStart, oldEnd: x.oldEnd })));
+				}
 				if (!s.changelists.hasPartialLists(abs)) {
 					continue;
 				}
 				seen.add(abs);
-				const chunks = await workingChunks(repo, c.path);
 				const keys = chunks?.keys ?? [];
 				if (JSON.stringify(keys) !== JSON.stringify(this.chunkKeys.get(abs))) {
 					this.chunkKeys.set(abs, keys);

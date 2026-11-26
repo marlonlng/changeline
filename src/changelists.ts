@@ -29,6 +29,7 @@ export class ChangelistManager implements vscode.Disposable {
 	private known: Set<string>;
 	private chunkLists: Map<string, Map<string, string>>;
 	private includedParts: Set<string>;
+	private layouts = new Map<string, { key: string; oldStart: number; oldEnd: number; list: string }[]>();
 	private saveTimer?: NodeJS.Timeout;
 
 	private readonly onDidChangeEmitter = new vscode.EventEmitter<void>();
@@ -254,6 +255,41 @@ export class ChangelistManager implements vscode.Disposable {
 			this.includedParts.add(`${absPath}\0${listId}`);
 		} else {
 			this.includedParts.delete(`${absPath}\0${listId}`);
+		}
+	}
+
+	/**
+	 * Follows the chunks of a changed file like JetBrains' partial changelists: a chunk edited in place keeps its
+	 * changelist, a new chunk that touches no earlier one goes to the active changelist.
+	 */
+	trackChunks(absPath: string, chunks: { key: string; oldStart: number; oldEnd: number }[]): void {
+		const prev = this.layouts.get(absPath);
+		let changed = false;
+		if (prev) {
+			const known = new Set(prev.map((p) => p.key));
+			for (const c of chunks) {
+				if (known.has(c.key)) {
+					continue;
+				}
+				const near = prev.find((p) => c.oldStart <= p.oldEnd && p.oldStart <= c.oldEnd);
+				const list = near ? near.list : this.activeId;
+				if (this.chunkListOf(absPath, c.key) !== list && this.get(list)) {
+					let m = this.chunkLists.get(absPath);
+					if (!m) {
+						m = new Map();
+						this.chunkLists.set(absPath, m);
+					}
+					m.set(c.key, list);
+					changed = true;
+				}
+			}
+		}
+		if (changed) {
+			this.normalizeChunks(absPath);
+		}
+		this.layouts.set(absPath, chunks.map((c) => ({ ...c, list: this.chunkListOf(absPath, c.key) })));
+		if (changed) {
+			this.changed();
 		}
 	}
 

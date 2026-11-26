@@ -245,6 +245,7 @@
 	"config.update.method.rebase": "Rebase",
 	"config.update.method.branchDefault": "Use the branch configuration (pull.rebase / branch.<name>.rebase)",
 	"config.update.submodules": "Update submodules (`git submodule update --init --recursive`) after \"Update Project\".",
+	"config.branches.restoreWorkspace": "Restore workspace on branch switching like JetBrains IDEs: the editors open on a branch are closed when another branch is checked out and opened again when the branch is checked out again.",
 	"config.branches.syncControl": "Synchronous branch control: with several repositories, branch operations from the branches popup are executed on all repositories (*Execute branch operations on all roots*).",
 	"config.push.autoUpdateOnReject": "What to do when a push is rejected because the remote has new commits.",
 	"config.push.autoUpdateOnReject.ask": "Ask",

@@ -21,7 +21,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | Local Changes tree, file status colors | *Commit* activity bar → Local Changes | E, S 01 |
 | Changelists: new, edit (name + comment), delete, set active | Tree context menu, view toolbar; the dialogs open as overlay in the Commit tool window | E, V (new changelist overlay), S 01 |
 | Move to Another Changelist (F6), drag & drop | Context menu, F6, drag between lists | E |
-| Partial changelists (chunks of one file in different lists) | ⇄ per chunk in the diff viewer; the file shows in each list | E, S 01–02 |
+| Partial changelists (chunks of one file in different lists); new changes in a file of another changelist go to the active changelist, edited chunks keep theirs | ⇄ per chunk in the diff viewer and in the change popup of the editor; the file shows in each list | E, S 01–02 |
 | Include checkboxes (file, directory, changelist) | Tree checkboxes | E, S 01 |
 | Partial commit by chunk | Checkbox per chunk in the diff viewer; committed through a temporary index | I, E |
 | Staging area mode (stage / unstage file or chunk) | `changeline.commit.useStagingArea` | I (index writes), E (stage and commit), H |
@@ -82,6 +82,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | Branches popup (recent, local, remote, tags, favorites, search) | Status bar branch | V, S 04 |
 | Checkout (smart / force), new branch, checkout and rebase, compare, diff with working tree, rebase onto, merge into, pull using rebase / merge, update, push, rename, edit tracking, delete with Restore | Branch actions | I, E, V (actions list, compare, New Branch dialog) |
 | Synchronous branch control for several repositories | Branches popup with several repositories | E |
+| Restore workspace on branch switching | `changeline.branches.restoreWorkspace` | E |
 | Checkout Tag or Revision, New Tag, Reset HEAD (soft / mixed / hard / keep) | Commands, dialogs | I |
 | Merge… and Rebase… dialogs with all options | Commands | I |
 | Interactive rebase dialog (pick / edit / reword / squash / fixup / drop, reorder) | Dialog | I, V, S 09 |
