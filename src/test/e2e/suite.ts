@@ -381,6 +381,50 @@ test('merge requests: list, fetch the head and add a review line comment (GitLab
 });
 
 
+test('branch action Checkout and Update checks out a tracked branch and pulls its upstream', async () => {
+	const repo = mainRepo();
+	const os = await import('os');
+	const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'changeline-upd-'));
+	const original = repo.state.branch!;
+	await repo.run(['init', '--bare', '-q', bare]);
+	await repo.addRemote('updremote', bare);
+	try {
+		await repo.run(['push', '-q', 'updremote', 'HEAD:refs/heads/upd']);
+		const base = (await repo.revParse('HEAD'))!;
+		await repo.run(['checkout', '-q', '-b', 'upd-tmp']);
+		const newer = await commitFile('upd.txt', 'remote change\n', 'remote change');
+		await repo.run(['push', '-q', 'updremote', 'HEAD:refs/heads/upd']);
+		await repo.run(['checkout', '-q', original]);
+		await repo.run(['branch', '-D', 'upd-tmp']);
+		await repo.run(['fetch', '-q', 'updremote']);
+		await repo.run(['branch', 'upd', base]);
+		await repo.run(['branch', '--set-upstream-to=updremote/upd', 'upd']);
+		await repo.refresh();
+		await repo.getRefs();
+		await setting('update.method', 'merge');
+		await vscode.commands.executeCommand('changeline.showLog');
+		const c = await waitFor(() => api._test.logView.current, 'log controller', 15000);
+		const restore = stubWindow({ info: () => undefined, warning: () => undefined });
+		try {
+			await vscode.commands.executeCommand('changeline.logBranch.checkoutUpdate', { logId: c.id, ref: 'upd', refType: 'head' });
+		} finally {
+			restore();
+		}
+		await waitFor(async () => (await repo.refresh(), repo.state.branch === 'upd' && (await repo.revParse('HEAD')) === newer), 'checked out and updated from updremote/upd', 20000);
+	} finally {
+		await setting('update.method', undefined);
+		await repo.run(['checkout', '-q', original]).catch(() => undefined);
+		await repo.run(['branch', '-D', 'upd']).catch(() => undefined);
+		await repo.removeRemote('updremote').catch(() => undefined);
+		await repo.refresh();
+		try {
+			fs.rmSync(bare, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+		} catch {
+			console.log(`  (could not remove ${bare})`);
+		}
+	}
+});
+
 test('review comments in the editor: threads, review comment, reply, resolve', async () => {
 	const { PrEditorComments } = await import('../../views/prEditorComments');
 	const repo = mainRepo();

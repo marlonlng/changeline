@@ -90,6 +90,8 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | Pull dialog, Fetch, auto fetch | Commands | I |
 | Push dialog (target editing, new branch, tags, hooks, force with lease, protected branches, rejected-push update) | ⇧⌘K | I, V (push, new branch), S 08 |
 | Manage Remotes, Clone (URL or GitHub list), Create Git Repository, Worktrees | Commands | I |
+| Checkout & Update (2026.1): checkout a tracked branch and pull its upstream | Branch actions, log branches pane | E |
+| Worktrees (2026.1): Checkout in New Worktree, worktrees listed in the branches popup and opened in a new window | Branches popup, log branches pane | I (worktree add / list) |
 | Commit File / Rollback on files and folders from the explorer and editor | Explorer / editor → Git | E, W |
 | Credentials: HTTPS username / password, SSH passphrase | VS Code input boxes via askpass | I |
 | Annotate with Git Blame (age / author colors, name format, annotate previous revision) | Editor gutter | E, S 06 |

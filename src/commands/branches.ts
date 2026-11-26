@@ -8,11 +8,13 @@ import { capitalize, config, isValidBranchName, plural, shortHash } from '../uti
 import { ComparePanel } from '../webviews/comparePanel';
 import { showDialog } from '../webviews/dialogPanel';
 import { favoriteBranches, LogController, toggleFavoriteBranch } from '../views/logController';
+import { newWorktree } from './worktrees';
 import { CommandContext, confirm, handleOutcome, resolveRepo, withSmartStash } from './common';
 
 interface BranchItem extends vscode.QuickPickItem {
 	action?: string;
 	ref?: RefInfo;
+	worktree?: string;
 }
 
 function trackInfo(r: RefInfo): string {
@@ -72,8 +74,8 @@ export async function showBranchesPopup(arg?: unknown, singleRepository = false)
 		const branchItem = (x: RefInfo): BranchItem => {
 			const fav = favorites.has(x.shortName);
 			return {
-				label: `${x.current ? '$(tag)' : x.type === 'remote' ? '$(cloud)' : x.type === 'tag' ? '$(tag)' : '$(git-branch)'} ${x.shortName}`,
-				description: [x.current ? 'current' : '', x.upstream && x.type === 'head' ? `→ ${x.upstream}` : '', trackInfo(x)].filter(Boolean).join('  '),
+				label: `${x.current ? '$(check)' : x.type === 'remote' ? '$(cloud)' : x.type === 'tag' ? '$(tag)' : '$(git-branch)'} ${x.shortName}`,
+				description: [x.current ? vscode.l10n.t('current') : '', x.upstream && x.type === 'head' ? `→ ${x.upstream}` : '', trackInfo(x)].filter(Boolean).join('  '),
 				ref: x,
 				buttons: x.type !== 'tag' ? [{ iconPath: fav ? STAR : STAR_EMPTY, tooltip: fav ? vscode.l10n.t('Remove from Favorites') : vscode.l10n.t('Add to Favorites') }] : [],
 			};
@@ -96,6 +98,11 @@ export async function showBranchesPopup(arg?: unknown, singleRepository = false)
 			items.push({ label: vscode.l10n.t('Tags'), kind: vscode.QuickPickItemKind.Separator });
 			items.push(...tags.map(branchItem));
 		}
+		const worktrees = (await r.listWorktrees().catch(() => [])).slice(1);
+		if (worktrees.length) {
+			items.push({ label: vscode.l10n.t('Worktrees'), kind: vscode.QuickPickItemKind.Separator });
+			items.push(...worktrees.map((w) => ({ label: `$(repo-forked) ${w.branch ?? (w.head ? shortHash(w.head) : w.path)}`, description: w.path, worktree: w.path })));
+		}
 		qp.title = current ? vscode.l10n.t('Git Branches · {0} · {1}', r.name, current) : r.state.head ? vscode.l10n.t('Git Branches · {0} · detached at {1}', r.name, shortHash(r.state.head)) : vscode.l10n.t('Git Branches · {0}', r.name);
 		qp.placeholder = vscode.l10n.t('Search for branches and actions');
 		qp.items = items;
@@ -110,6 +117,11 @@ export async function showBranchesPopup(arg?: unknown, singleRepository = false)
 	qp.onDidAccept(async () => {
 		const item = qp.selectedItems[0];
 		if (!item) {
+			return;
+		}
+		if (item.worktree) {
+			qp.hide();
+			await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(item.worktree), true);
 			return;
 		}
 		if (item.action === 'switchRepo') {
@@ -156,8 +168,14 @@ export async function branchActions(repo: Repository, ref: RefInfo): Promise<voi
 	const isCurrent = ref.type === 'head' && ref.current;
 	if (!isCurrent) {
 		items.push({ label: vscode.l10n.t('$(check) Checkout'), id: 'checkout' });
+		if (ref.type === 'head' && ref.upstream) {
+			items.push({ label: vscode.l10n.t('$(sync) Checkout and Update'), id: 'checkoutUpdate' });
+		}
 	}
 	items.push({ label: vscode.l10n.t('$(add) New Branch from \'{0}\'...', name), id: 'newFrom' });
+	if (!isCurrent && ref.type !== 'tag') {
+		items.push({ label: vscode.l10n.t('$(repo-forked) Checkout in New Worktree...'), id: 'worktree' });
+	}
 	if (!isCurrent) {
 		if (ref.type !== 'tag') {
 			items.push({ label: vscode.l10n.t('$(git-pull-request) Checkout and Rebase onto \'{0}\'', current), id: 'checkoutRebase' });
@@ -208,6 +226,13 @@ export async function runBranchAction(repo: Repository, ref: RefInfo, id: string
 				await checkoutRef(repo, ref.shortName);
 			}
 			return;
+		case 'checkoutUpdate':
+			if (await checkoutRef(repo, ref.shortName)) {
+				await vscode.commands.executeCommand('changeline.updateProject', repo);
+			}
+			return;
+		case 'worktree':
+			return newWorktree(repo, ref.shortName, ref.type === 'head');
 		case 'newFrom':
 			return newBranch(repo, name, ref.type === 'remote' ? ref.shortName.slice((ref.remote?.length ?? 0) + 1) : undefined);
 		case 'checkoutRebase': {
@@ -826,7 +851,7 @@ export function registerBranchCommands(ctx: CommandContext): void {
 			await runBranchAction(repo, ref, id);
 		}
 	};
-	for (const id of ['checkout', 'newFrom', 'checkoutRebase', 'compare', 'diffWorking', 'rebaseOnto', 'merge', 'pullRebase', 'pullMerge', 'update', 'push', 'rename', 'tracking', 'delete', 'pushTag', 'favorite', 'newLogTab']) {
+	for (const id of ['checkout', 'checkoutUpdate', 'worktree', 'newFrom', 'checkoutRebase', 'compare', 'diffWorking', 'rebaseOnto', 'merge', 'pullRebase', 'pullMerge', 'update', 'push', 'rename', 'tracking', 'delete', 'pushTag', 'favorite', 'newLogTab']) {
 		ctx.register(`changeline.logBranch.${id}`, fromLog(id));
 	}
 }

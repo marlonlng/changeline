@@ -160,6 +160,8 @@ for id, t, i in logfile_cmds:
     cmd(f'changeline.logFile.{id}', t, i, category='Changeline Log')
 logbranch_cmds = [
     ('checkout', 'Checkout'),
+    ('checkoutUpdate', 'Checkout and Update'),
+    ('worktree', 'Checkout in New Worktree...'),
     ('newFrom', 'New Branch from Selected...'),
     ('checkoutRebase', 'Checkout and Rebase onto Current'),
     ('compare', 'Compare with Current'),
@@ -335,6 +337,8 @@ menus['webview/context'] += [
 B = "webviewId == 'changeline.log' && webviewSection == 'branch'"
 menus['webview/context'] += [
     O(command='changeline.logBranch.checkout', when=f"{B} && !isCurrent", group='1_checkout@1'),
+    O(command='changeline.logBranch.checkoutUpdate', when=f"{B} && !isCurrent && isLocal && hasUpstream", group='1_checkout@1b'),
+    O(command='changeline.logBranch.worktree', when=f"{B} && !isCurrent && !isTag && ref != 'HEAD'", group='1_checkout@4'),
     O(command='changeline.logBranch.newFrom', when=B, group='1_checkout@2'),
     O(command='changeline.logBranch.checkoutRebase', when=f"{B} && !isCurrent && !isTag", group='1_checkout@3'),
     O(command='changeline.logBranch.compare', when=f"{B} && !isCurrent", group='2_compare@1'),

@@ -137,6 +137,8 @@
 	"command.logFile.annotate": "Annotate Revision",
 	"command.logFile.openInBrowser": "Open in Browser",
 	"command.logBranch.checkout": "Checkout",
+	"command.logBranch.checkoutUpdate": "Checkout and Update",
+	"command.logBranch.worktree": "Checkout in New Worktree...",
 	"command.logBranch.newFrom": "New Branch from Selected...",
 	"command.logBranch.checkoutRebase": "Checkout and Rebase onto Current",
 	"command.logBranch.compare": "Compare with Current",

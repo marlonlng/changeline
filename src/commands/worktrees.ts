@@ -6,15 +6,16 @@ import { isValidBranchName, shortHash } from '../util';
 import { showDialog } from '../webviews/dialogPanel';
 import { CommandContext, confirm, resolveRepo } from './common';
 
-async function newWorktree(repo: Repository): Promise<void> {
+/** Create Worktree dialog; started for a branch of the branches popup, the branch is checked out in the new worktree. */
+export async function newWorktree(repo: Repository, ref?: string, local = false): Promise<void> {
 	const branches = repo.refs.filter((r) => r.type !== 'tag');
 	const result = await showDialog({
 		title: vscode.l10n.t('Create Worktree'),
 		fields: [
-			{ id: 'ref', type: 'combo', label: vscode.l10n.t('Branch or revision:'), options: branches.map((b) => ({ value: b.shortName, label: b.shortName })), required: true, focus: true },
-			{ id: 'createBranch', type: 'checkbox', label: vscode.l10n.t('Create a new branch'), value: true },
-			{ id: 'branch', type: 'text', label: vscode.l10n.t('New branch name:'), visibleWhen: 'createBranch' },
-			{ id: 'dir', type: 'text', label: vscode.l10n.t('Directory:'), value: path.join(path.dirname(repo.root), `${repo.name}-worktree`), required: true },
+			{ id: 'ref', type: 'combo', label: vscode.l10n.t('Branch or revision:'), value: ref, options: branches.map((b) => ({ value: b.shortName, label: b.shortName })), required: true, focus: !ref },
+			{ id: 'createBranch', type: 'checkbox', label: vscode.l10n.t('Create a new branch'), value: !local },
+			{ id: 'branch', type: 'text', label: vscode.l10n.t('New branch name:'), visibleWhen: 'createBranch', value: ref && !local ? ref.replace(/^[^/]+\//, '') : undefined },
+			{ id: 'dir', type: 'text', label: vscode.l10n.t('Directory:'), value: path.join(path.dirname(repo.root), `${repo.name}-${(ref ?? 'worktree').replace(/[^\w.-]+/g, '-')}`), required: true, focus: !!ref },
 		],
 		okLabel: vscode.l10n.t('Create'),
 		width: 620,

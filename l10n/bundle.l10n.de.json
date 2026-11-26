@@ -1035,5 +1035,8 @@
 	"{0} of {1} files viewed": "{0} von {1} Dateien angesehen",
 	"Generate Commit Message": "Commit-Nachricht generieren",
 	"Select the changes to commit first.": "Wählen Sie zuerst die Änderungen für den Commit aus.",
-	"No language model is available. Install and sign in to an extension that provides one, for example GitHub Copilot.": "Kein Sprachmodell verfügbar. Installieren Sie eine Erweiterung, die eines bereitstellt, zum Beispiel GitHub Copilot, und melden Sie sich an."
+	"No language model is available. Install and sign in to an extension that provides one, for example GitHub Copilot.": "Kein Sprachmodell verfügbar. Installieren Sie eine Erweiterung, die eines bereitstellt, zum Beispiel GitHub Copilot, und melden Sie sich an.",
+	"$(sync) Checkout and Update": "$(sync) Auschecken und aktualisieren",
+	"$(repo-forked) Checkout in New Worktree...": "$(repo-forked) In neuem Worktree auschecken…",
+	"Worktrees": "Worktrees"
 }

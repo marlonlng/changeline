@@ -267,5 +267,7 @@
 	"command.pr.resolveThread": "Auflösen",
 	"command.pr.unresolveThread": "Wieder öffnen",
 	"config.commit.wrapWhenTypingReachesRightMargin": "Die Commit-Nachricht beim Tippen am rechten Rand umbrechen (`changeline.commit.bodyLineLengthLimit`), wie *Wrap when typing reaches right margin* in JetBrains-IDEs.",
-	"config.issueNavigation": "Issue-Navigation wie in JetBrains-IDEs: Issue-IDs in Commit-Nachrichten, die auf `pattern` (regulärer Ausdruck) passen, verlinken auf `link`; `$0` ist der ganze Treffer, `$1`… seine Gruppen. `#123` verlinkt bei GitHub und GitLab automatisch auf Issues."
+	"config.issueNavigation": "Issue-Navigation wie in JetBrains-IDEs: Issue-IDs in Commit-Nachrichten, die auf `pattern` (regulärer Ausdruck) passen, verlinken auf `link`; `$0` ist der ganze Treffer, `$1`… seine Gruppen. `#123` verlinkt bei GitHub und GitLab automatisch auf Issues.",
+	"command.logBranch.checkoutUpdate": "Auschecken und aktualisieren",
+	"command.logBranch.worktree": "In neuem Worktree auschecken…"
 }
