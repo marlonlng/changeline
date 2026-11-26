@@ -22,17 +22,19 @@ body.vscode-high-contrast-light {
 	height: 100%;
 }
 
+.merge-view .jg-toolbar select {
+	min-width: 0;
+	max-width: 160px;
+	flex-shrink: 1;
+}
+
 .merge-view .counter {
 	padding: 0 8px;
 }
 
-.m-titles,
-.m-row {
+.m-titles {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1fr) 46px minmax(0, 1fr);
-}
-
-.m-titles {
 	border-bottom: 1px solid var(--jg-border);
 	flex: none;
 	font-size: 0.92em;
@@ -49,116 +51,215 @@ body.vscode-high-contrast-light {
 
 .m-body {
 	flex: 1;
-	overflow: auto;
+	min-height: 0;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1fr) 46px minmax(0, 1fr);
+	grid-template-rows: minmax(0, 1fr);
 	line-height: 1.45;
 	tab-size: 4;
-	padding-bottom: 30vh;
 	user-select: text;
 }
 
-.m-row .pane {
-	min-width: 0;
+.m-body .pane {
+	position: relative;
+	overflow-x: auto;
+	overflow-y: hidden;
+	outline: none;
 }
 
-.m-row.stable .pane,
-.m-row .line {
+.m-body .content {
+	min-width: 100%;
+	width: max-content;
+	padding-bottom: 30vh;
+}
+
+.m-body.wrap .content {
+	width: auto;
+}
+
+.m-body .line,
+.m-body .ta-row {
 	display: flex;
-	min-width: 0;
 }
 
-.m-row .ln {
+.m-body .ln,
+.m-body .ln-col {
 	flex: none;
+	position: sticky;
+	left: 0;
+	z-index: 1;
 	width: var(--lnw);
 	padding-right: 8px;
 	text-align: right;
 	color: var(--vscode-editorLineNumber-foreground);
+	background: var(--vscode-editor-background);
 	user-select: none;
 }
 
-.m-row .code {
+.m-body .ln-col {
+	white-space: pre;
+}
+
+.m-body .code {
 	flex: 1;
-	min-width: 0;
-	white-space: pre-wrap;
-	word-break: break-all;
+	white-space: pre;
 	padding-right: 6px;
 }
 
-.m-row .gut {
-	display: flex;
-	flex-direction: row;
-	justify-content: center;
-	align-items: flex-start;
-	gap: 1px;
-	border-left: 1px solid var(--jg-border);
-	border-right: 1px solid var(--jg-border);
-	padding-top: 1px;
+.m-body.wrap .code {
+	min-width: 0;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
 }
 
-.m-row.change.kind-left .pane.l,
-.m-row.change.kind-right .pane.r {
+.m-body:not(.hl-none) .pane.l .ch:is(.kind-left, .kind-both),
+.m-body:not(.hl-none) .pane.l .ch:is(.kind-left, .kind-both) .ln,
+.m-body:not(.hl-none) .pane.r .ch:is(.kind-right, .kind-both),
+.m-body:not(.hl-none) .pane.r .ch:is(.kind-right, .kind-both) .ln,
+.m-body:not(.hl-none) .pane.c .ch,
+.m-body:not(.hl-none) .pane.c .ch .ln-col {
 	background: var(--m-mod);
 }
 
-.m-row.change.kind-conflict .pane.l,
-.m-row.change.kind-conflict .pane.r {
+.m-body:not(.hl-none) .pane .ch.kind-conflict,
+.m-body:not(.hl-none) .pane .ch.kind-conflict .ln,
+.m-body:not(.hl-none) .pane .ch.kind-conflict .ln-col {
 	background: var(--m-conf);
 }
 
-.m-row.change.kind-both .pane.l,
-.m-row.change.kind-both .pane.r {
-	background: var(--m-both);
+.m-body:not(.hl-none) .pane .ch.resolved,
+.m-body:not(.hl-none) .pane .ch.resolved .ln,
+.m-body:not(.hl-none) .pane .ch.resolved .ln-col {
+	background: var(--m-done);
 }
 
-.m-row.change .pane.c {
-	background: var(--m-conf);
+.m-body .ch .wd {
+	background: rgba(255, 255, 255, 0.12);
+	border-radius: 2px;
 }
 
-.m-row.change.kind-left .pane.c,
-.m-row.change.kind-right .pane.c,
-.m-row.change.kind-both .pane.c {
-	background: var(--m-mod);
+body.vscode-light .m-body .ch .wd {
+	background: rgba(0, 0, 0, 0.1);
 }
 
-.m-row.change.resolved .pane {
-	background: var(--m-done) !important;
-}
-
-.m-row.change .pane.side-applied,
-.m-row.change .pane.side-ignored {
+.m-body .pane .ch.side-applied > .line,
+.m-body .pane .ch.side-ignored > .line {
 	opacity: 0.6;
 }
 
-.m-row.change.current {
+.m-body .pane.c .ch.current {
 	box-shadow: inset 0 1px 0 var(--vscode-focusBorder), inset 0 -1px 0 var(--vscode-focusBorder);
 }
 
-.m-row .filler {
+.m-body .ch:empty {
+	position: relative;
+	height: 0;
+}
+
+.m-body .ch:empty::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: -1px;
 	height: 2px;
 	background: var(--jg-border);
 }
 
-.m-row .result {
-	width: 100%;
+.m-body .result {
+	flex: 1;
+	min-width: 0;
 	display: block;
 	resize: none;
 	border: none;
 	border-radius: 0;
 	background: transparent;
 	color: inherit;
+	font: inherit;
 	line-height: 1.45;
-	padding: 0 6px 0 calc(var(--lnw) + 0px);
+	padding: 0 6px;
 	overflow: hidden;
-	white-space: pre-wrap;
-	word-break: break-all;
+	white-space: pre;
 	min-height: 1.45em;
 	tab-size: 4;
 }
 
-.m-row .result:focus {
+.m-body.wrap .result {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.m-body .result:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
-.m-row .act {
+.m-body .divider {
+	position: relative;
+	overflow: hidden;
+	border-left: 1px solid var(--jg-border);
+	border-right: 1px solid var(--jg-border);
+	background: var(--vscode-editorGutter-background, transparent);
+	user-select: none;
+}
+
+.m-body .bands {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+
+.m-body .band {
+	fill: var(--m-mod);
+}
+
+.m-body .band.kind-conflict {
+	fill: var(--m-conf);
+}
+
+.m-body .band.resolved {
+	fill: var(--m-done);
+}
+
+.m-body .band.side-applied,
+.m-body .band.side-ignored {
+	opacity: 0.5;
+}
+
+.m-body .band.current {
+	stroke: var(--vscode-focusBorder);
+	stroke-width: 1;
+}
+
+.m-body.hl-none .band {
+	fill: transparent;
+	stroke: var(--jg-border);
+}
+
+.m-body .acts-layer {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+.m-body .acts {
+	position: absolute;
+	display: flex;
+	align-items: center;
+	gap: 1px;
+	padding-top: 1px;
+	pointer-events: auto;
+}
+
+.m-body .acts.l {
+	left: 1px;
+}
+
+.m-body .acts.r {
+	right: 1px;
+}
+
+.m-body .act {
 	font: inherit;
 	font-weight: bold;
 	width: 20px;
@@ -174,18 +275,16 @@ body.vscode-high-contrast-light {
 	padding: 0;
 }
 
-.m-row .act:hover {
+.m-body .act:hover {
 	background: var(--vscode-toolbar-hoverBackground);
 }
 
-.m-row .act.ignore .codicon {
+.m-body .act.ignore .codicon {
 	font-size: 12px;
 	opacity: 0.8;
 }
 
-.m-row.fold {
-	display: block;
-	text-align: center;
+.m-body .fold {
 	color: var(--jg-muted);
 	cursor: pointer;
 	background: var(--vscode-editorWidget-background);
@@ -193,6 +292,12 @@ body.vscode-high-contrast-light {
 	border-bottom: 1px dashed var(--jg-border);
 	font-family: var(--vscode-font-family);
 	font-size: 0.9em;
+}
+
+.m-body .fold-label {
+	position: sticky;
+	left: calc(var(--lnw) + 8px);
+	padding-left: calc(var(--lnw) + 8px);
 }
 
 .m-footer {

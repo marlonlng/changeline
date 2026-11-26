@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import type { Repository } from '../git/repository';
 import { services } from '../services';
 import type { ConflictInfo } from '../shared/types';
-import { basename, plural, samePath, shortHash } from '../util';
+import { basename, config, plural, samePath, shortHash } from '../util';
 import { RpcHandlers, WebviewPanelBase } from './host';
 
 export interface MergeRequest {
@@ -16,6 +16,19 @@ export interface MergeRequest {
 	leftTitle: string;
 	rightTitle: string;
 	apply(result: string): Promise<void>;
+}
+
+const SETTINGS_KEY = 'changeline.merge.viewSettings';
+
+interface MergeViewSettings {
+	whitespace: 'none' | 'trim' | 'all';
+	highlight: 'words' | 'lines' | 'none';
+	softWrap: boolean;
+}
+
+function mergeSettings(): MergeViewSettings {
+	const stored = services().context.globalState.get<Partial<MergeViewSettings>>(SETTINGS_KEY, {});
+	return { whitespace: stored.whitespace ?? 'none', highlight: stored.highlight ?? 'words', softWrap: stored.softWrap ?? config('diff.softWraps', false) };
 }
 
 export class MergePanel extends WebviewPanelBase {
@@ -42,6 +55,7 @@ export class MergePanel extends WebviewPanelBase {
 	protected handlers(): RpcHandlers {
 		return {
 			ready: () => ({
+				settings: mergeSettings(),
 				title: this.req.title,
 				path: this.req.path,
 				base: this.req.base,
@@ -50,6 +64,10 @@ export class MergePanel extends WebviewPanelBase {
 				leftTitle: this.req.leftTitle,
 				rightTitle: this.req.rightTitle,
 			}),
+			saveSettings: async (p: Partial<MergeViewSettings>) => {
+				const state = services().context.globalState;
+				await state.update(SETTINGS_KEY, { ...state.get<Partial<MergeViewSettings>>(SETTINGS_KEY, {}), ...p });
+			},
 			apply: async (p: { result: string; unresolved: number }) => {
 				if (p.unresolved > 0) {
 					const choice = await vscode.window.showWarningMessage(

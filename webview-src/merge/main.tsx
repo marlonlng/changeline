@@ -2,14 +2,22 @@ import '../common/base.css';
 import './style.css';
 import { render } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { detectEol, splitLines } from '../../src/shared/diff';
+import { detectEol, diffWords, rangesInLine, splitLines, stripEol, TextRange } from '../../src/shared/diff';
 import { ChangeBlock, computeMerge, MergeBlock, resolveSimpleConflict } from '../../src/shared/diff3';
 import { Icon, IconButton, PopupMenu, useKeys } from '../common/components';
+import { LinkedPanes } from '../common/linkedPanes';
 import { highlightLines, languageFor, renderSegments, Segment } from '../common/highlight';
 import { call } from '../common/rpc';
 import { plural, t } from '../common/l10n';
 
+interface MergeSettings {
+	whitespace: 'none' | 'trim' | 'all';
+	highlight: 'words' | 'lines' | 'none';
+	softWrap: boolean;
+}
+
 interface MergeData {
+	settings: MergeSettings;
 	title: string;
 	path: string;
 	base: string;
@@ -45,8 +53,17 @@ function isResolved(s: BlockState): boolean {
 	return s.edited !== undefined || (s.left !== 'pending' && s.right !== 'pending');
 }
 
-function Code({ segs }: { segs: Segment[] }) {
-	return <span class="code" dangerouslySetInnerHTML={{ __html: renderSegments(segs) || '&#8203;' }} />;
+/** Changed characters of each side line against the base, split per line. */
+function sideMarks(base: string[], side: string[]): TextRange[][] {
+	const baseText = base.map(stripEol).join('\n');
+	const sideLines = side.map(stripEol);
+	const ranges = diffWords(baseText, sideLines.join('\n')).newRanges;
+	let offset = 0;
+	return sideLines.map((line) => {
+		const out = rangesInLine(ranges, offset, offset + line.length);
+		offset += line.length + 1;
+		return out;
+	});
 }
 
 function App() {
@@ -56,20 +73,37 @@ function App() {
 	const [current, setCurrent] = useState(-1);
 	const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 	const [busy, setBusy] = useState(false);
-	const bodyRef = useRef<HTMLDivElement>(null);
+	const [settings, setSettings] = useState<MergeSettings | null>(null);
+	const leftRef = useRef<HTMLDivElement>(null);
+	const resultRef = useRef<HTMLDivElement>(null);
+	const rightRef = useRef<HTMLDivElement>(null);
+	const leftBands = useRef<SVGSVGElement>(null);
+	const rightBands = useRef<SVGSVGElement>(null);
+	const leftLayer = useRef<HTMLDivElement>(null);
+	const rightLayer = useRef<HTMLDivElement>(null);
+	const linksRef = useRef<LinkedPanes | undefined>(undefined);
+	const bandRef = useRef<(divider: number, index: number) => string | undefined>(() => undefined);
 
 	useEffect(() => {
-		call<MergeData>('ready').then(setData);
+		call<MergeData>('ready').then((d) => {
+			setSettings(d.settings);
+			setData(d);
+		});
 	}, []);
 
+	const updateSettings = (patch: Partial<MergeSettings>) => {
+		setSettings((prev) => ({ ...prev!, ...patch }));
+		void call('saveSettings', patch);
+	};
+
 	const model = useMemo(() => {
-		if (!data) {
+		if (!data || !settings) {
 			return null;
 		}
 		const base = splitLines(data.base);
 		const left = splitLines(data.left);
 		const right = splitLines(data.right);
-		const blocks = computeMerge(base, left, right);
+		const blocks = computeMerge(base, left, right, { whitespace: settings.whitespace });
 		const lang = languageFor(data.path);
 		return {
 			base,
@@ -80,7 +114,21 @@ function App() {
 			hlRight: highlightLines(data.right, lang, right.length),
 			eol: detectEol(data.left || data.right || data.base),
 		};
-	}, [data]);
+	}, [data, settings?.whitespace]);
+
+	const marks = useMemo(() => {
+		const m = new Map<number, { left: TextRange[][]; right: TextRange[][] }>();
+		if (!model || settings?.highlight !== 'words') {
+			return m;
+		}
+		model.blocks.forEach((b, i) => {
+			if (b.type === 'change') {
+				const base = model.base.slice(b.baseStart, b.baseEnd);
+				m.set(i, { left: sideMarks(base, model.left.slice(b.leftStart, b.leftEnd)), right: sideMarks(base, model.right.slice(b.rightStart, b.rightEnd)) });
+			}
+		});
+		return m;
+	}, [model, settings?.highlight]);
 
 	useEffect(() => {
 		if (!model) {
@@ -227,13 +275,58 @@ function App() {
 		}
 		const target = list[idx];
 		setCurrent(target);
-		requestAnimationFrame(() => {
-			const el = bodyRef.current?.querySelector(`[data-block="${target}"]`) as HTMLElement | null;
-			if (el && bodyRef.current) {
-				bodyRef.current.scrollTop = el.offsetTop - bodyRef.current.clientHeight / 3;
-			}
-		});
+		requestAnimationFrame(() => linksRef.current?.reveal(target, 1));
 	};
+
+	bandRef.current = (divider, i) => {
+		const b = model?.blocks[i];
+		const s = states.get(i);
+		if (!b || b.type !== 'change' || !s) {
+			return undefined;
+		}
+		const side = divider === 0 ? s.left : s.right;
+		if (side === 'none') {
+			return undefined;
+		}
+		return `band kind-${b.kind} side-${side}${isResolved(s) ? ' resolved' : ''}${current === i ? ' current' : ''}`;
+	};
+
+	const placeActions = () => {
+		const links = linksRef.current;
+		for (const layer of [leftLayer.current, rightLayer.current]) {
+			if (!links || !layer) {
+				continue;
+			}
+			for (const el of layer.querySelectorAll<HTMLElement>('.acts')) {
+				const box = links.visibleBox(Number(el.dataset.pane), Number(el.dataset.acts));
+				const visible = !!box && box.top + 24 > 0 && box.top < layer.clientHeight;
+				el.style.display = visible ? '' : 'none';
+				if (box) {
+					el.style.top = `${Math.max(0, box.top)}px`;
+				}
+			}
+		}
+	};
+
+	const ready = !!model;
+	useEffect(() => {
+		const panes = [leftRef.current, resultRef.current, rightRef.current];
+		const dividers = [leftBands.current, rightBands.current];
+		if (panes.some((p) => !p) || dividers.some((d) => !d)) {
+			return;
+		}
+		const links = new LinkedPanes(panes as HTMLElement[], dividers as SVGSVGElement[], (k, i) => bandRef.current(k, i), placeActions);
+		linksRef.current = links;
+		links.refresh(1);
+		return () => {
+			links.dispose();
+			linksRef.current = undefined;
+		};
+	}, [ready]);
+
+	useEffect(() => {
+		linksRef.current?.refresh(1);
+	});
 
 	useKeys(
 		(e) => {
@@ -247,107 +340,83 @@ function App() {
 		},
 	);
 
-	if (!data || !model) {
+	if (!data || !model || !settings) {
 		return <div class="jg-empty">{t('Loading…')}</div>;
 	}
 
 	const lnw = `${Math.max(3, String(Math.max(model.left.length, model.right.length)).length) + 1}ch`;
-
-	const renderStable = (b: MergeBlock & { type: 'stable' }, i: number) => {
-		const n = b.baseEnd - b.baseStart;
-		const isFirst = i === 0;
-		const isLast = i === model.blocks.length - 1;
-		const head = isFirst ? 0 : CONTEXT;
-		const tail = isLast ? 0 : CONTEXT;
-		const rows: preact.JSX.Element[] = [];
-		const line = (k: number) => (
-			<div class="m-row stable" key={`s${i}-${k}`}>
-				<div class="pane l">
-					<span class="ln">{b.leftStart + k + 1}</span>
-					<Code segs={model.hlLeft[b.leftStart + k]} />
-				</div>
-				<div class="gut" />
-				<div class="pane c">
-					<span class="ln">{b.baseStart + k + 1}</span>
-					<Code segs={model.hlLeft[b.leftStart + k]} />
-				</div>
-				<div class="gut" />
-				<div class="pane r">
-					<span class="ln">{b.rightStart + k + 1}</span>
-					<Code segs={model.hlRight[b.rightStart + k]} />
-				</div>
-			</div>
-		);
-		if (n > head + tail + 2 && !expanded.has(i)) {
-			for (let k = 0; k < head; k++) {
-				rows.push(line(k));
+	const code = (segs: Segment[] | undefined, marks?: TextRange[]) => <span class="code" dangerouslySetInnerHTML={{ __html: renderSegments(segs ?? [], marks) || '&#8203;' }} />;
+	const leftRows: preact.JSX.Element[] = [];
+	const resultRows: preact.JSX.Element[] = [];
+	const rightRows: preact.JSX.Element[] = [];
+	const leftActs: preact.JSX.Element[] = [];
+	const rightActs: preact.JSX.Element[] = [];
+	let resultLine = 1;
+	model.blocks.forEach((b, i) => {
+		if (b.type === 'stable') {
+			const n = b.baseEnd - b.baseStart;
+			const head = i === 0 ? 0 : CONTEXT;
+			const tail = i === model.blocks.length - 1 ? 0 : CONTEXT;
+			const first = resultLine;
+			const lines = (from: number, to: number) => {
+				for (let k = from; k < to; k++) {
+					leftRows.push(<div class="line" key={`l${i}-${k}`}><span class="ln">{b.leftStart + k + 1}</span>{code(model.hlLeft[b.leftStart + k])}</div>);
+					resultRows.push(<div class="line" key={`c${i}-${k}`}><span class="ln">{first + k}</span>{code(model.hlLeft[b.leftStart + k])}</div>);
+					rightRows.push(<div class="line" key={`r${i}-${k}`}><span class="ln">{b.rightStart + k + 1}</span>{code(model.hlRight[b.rightStart + k])}</div>);
+				}
+			};
+			if (n > head + tail + 2 && !expanded.has(i)) {
+				lines(0, head);
+				const fold = (side: string) => (
+					<div class="fold" key={`f${side}${i}`} onClick={() => setExpanded(new Set([...expanded, i]))}>
+						<span class="fold-label">
+							<Icon name="unfold" /> {plural(n - head - tail, '{0} unchanged line', '{0} unchanged lines')}
+						</span>
+					</div>
+				);
+				leftRows.push(fold('l'));
+				resultRows.push(fold('c'));
+				rightRows.push(fold('r'));
+				lines(n - tail, n);
+			} else {
+				lines(0, n);
 			}
-			rows.push(
-				<div class="m-row fold" key={`f${i}`} onClick={() => setExpanded(new Set([...expanded, i]))}>
-					<Icon name="unfold" /> {plural(n - head - tail, '{0} unchanged line', '{0} unchanged lines')}
-				</div>,
-			);
-			for (let k = n - tail; k < n; k++) {
-				rows.push(line(k));
-			}
-		} else {
-			for (let k = 0; k < n; k++) {
-				rows.push(line(k));
-			}
+			resultLine += n;
+			return;
 		}
-		return rows;
-	};
-
-	const renderChange = (b: ChangeBlock, i: number) => {
 		const s = states.get(i);
 		if (!s) {
-			return null;
+			return;
 		}
-		const resolved = isResolved(s);
 		const text = resultText(i);
-		const leftLines: preact.JSX.Element[] = [];
-		for (let k = b.leftStart; k < b.leftEnd; k++) {
-			leftLines.push(
-				<div class="line">
-					<span class="ln">{k + 1}</span>
-					<Code segs={model.hlLeft[k]} />
-				</div>,
-			);
+		const count = text ? text.split('\n').length - (text.endsWith('\n') ? 1 : 0) : 0;
+		const cls = `ch kind-${b.kind}${isResolved(s) ? ' resolved' : ''}${current === i ? ' current' : ''}`;
+		const m = marks.get(i);
+		const sideLines = (side: 'left' | 'right') => {
+			const from = side === 'left' ? b.leftStart : b.rightStart;
+			const to = side === 'left' ? b.leftEnd : b.rightEnd;
+			const hl = side === 'left' ? model.hlLeft : model.hlRight;
+			const out: preact.JSX.Element[] = [];
+			for (let k = from; k < to; k++) {
+				out.push(<div class="line" key={`${side}${k}`}><span class="ln">{k + 1}</span>{code(hl[k], m?.[side][k - from])}</div>);
+			}
+			return out;
+		};
+		leftRows.push(<div class={`${cls} side-${s.left}`} data-chunk={i} key={`lc${i}`}>{sideLines('left')}</div>);
+		rightRows.push(<div class={`${cls} side-${s.right}`} data-chunk={i} key={`rc${i}`}>{sideLines('right')}</div>);
+		const numbers: string[] = [];
+		for (let k = 0; k < Math.max(1, count); k++) {
+			numbers.push(k < count ? String(resultLine + k) : '');
 		}
-		const rightLines: preact.JSX.Element[] = [];
-		for (let k = b.rightStart; k < b.rightEnd; k++) {
-			rightLines.push(
-				<div class="line">
-					<span class="ln">{k + 1}</span>
-					<Code segs={model.hlRight[k]} />
-				</div>,
-			);
-		}
-		const rows = Math.max(1, text.split('\n').length - (text.endsWith('\n') ? 1 : 0));
-		return (
-			<div
-				class={`m-row change kind-${b.kind}${resolved ? ' resolved' : ''}${current === i ? ' current' : ''}`}
-				data-block={i}
-				key={`c${i}`}
-				onClick={() => setCurrent(i)}
-			>
-				<div class={`pane l side-${s.left}`}>{leftLines.length ? leftLines : <div class="filler" />}</div>
-				<div class="gut">
-					{s.left === 'pending' && (
-						<>
-							<button class="act" title={t('Accept left change')} onClick={(e) => (e.stopPropagation(), apply(i, 'left'))}>
-								&raquo;
-							</button>
-							<button class="act ignore" title={t('Ignore left change')} onClick={(e) => (e.stopPropagation(), ignore(i, 'left'))}>
-								<Icon name="close" />
-							</button>
-						</>
-					)}
-				</div>
-				<div class="pane c">
+		resultRows.push(
+			<div class={cls} data-chunk={i} key={`cc${i}`}>
+				<div class="ta-row">
+					<div class="ln-col">{numbers.join('\n')}</div>
 					<textarea
 						class="result jg-code"
-						rows={rows}
+						rows={Math.max(1, count)}
+						cols={settings.softWrap ? undefined : Math.max(20, ...text.split('\n').map((l) => l.length + 2))}
+						wrap={settings.softWrap ? 'soft' : 'off'}
 						spellcheck={false}
 						value={stripTrailingEol(text)}
 						onInput={(e) => {
@@ -356,22 +425,34 @@ function App() {
 						}}
 					/>
 				</div>
-				<div class="gut">
-					{s.right === 'pending' && (
-						<>
-							<button class="act" title={t('Accept right change')} onClick={(e) => (e.stopPropagation(), apply(i, 'right'))}>
-								&laquo;
-							</button>
-							<button class="act ignore" title={t('Ignore right change')} onClick={(e) => (e.stopPropagation(), ignore(i, 'right'))}>
-								<Icon name="close" />
-							</button>
-						</>
-					)}
-				</div>
-				<div class={`pane r side-${s.right}`}>{rightLines.length ? rightLines : <div class="filler" />}</div>
-			</div>
+			</div>,
 		);
-	};
+		resultLine += count;
+		if (s.left === 'pending') {
+			leftActs.push(
+				<div class="acts l" data-acts={i} data-pane="0" key={`al${i}`}>
+					<button class="act" title={t('Accept left change')} onClick={(e) => (e.stopPropagation(), apply(i, 'left'))}>
+						&raquo;
+					</button>
+					<button class="act ignore" title={t('Ignore left change')} onClick={(e) => (e.stopPropagation(), ignore(i, 'left'))}>
+						<Icon name="close" />
+					</button>
+				</div>,
+			);
+		}
+		if (s.right === 'pending') {
+			rightActs.push(
+				<div class="acts r" data-acts={i} data-pane="2" key={`ar${i}`}>
+					<button class="act ignore" title={t('Ignore right change')} onClick={(e) => (e.stopPropagation(), ignore(i, 'right'))}>
+						<Icon name="close" />
+					</button>
+					<button class="act" title={t('Accept right change')} onClick={(e) => (e.stopPropagation(), apply(i, 'right'))}>
+						&laquo;
+					</button>
+				</div>,
+			);
+		}
+	});
 
 	return (
 		<div class="merge-view">
@@ -390,6 +471,18 @@ function App() {
 				<span class="sep" />
 				<IconButton icon="arrow-up" title={t('Previous Change (Shift+F7)')} onClick={() => goTo(-1)} />
 				<IconButton icon="arrow-down" title={t('Next Change (F7)')} onClick={() => goTo(1)} />
+				<span class="sep" />
+				<select title={t('Whitespace')} value={settings.whitespace} disabled={changed} onChange={(e) => updateSettings({ whitespace: (e.target as HTMLSelectElement).value as MergeSettings['whitespace'] })}>
+					<option value="none">{t('Do not ignore')}</option>
+					<option value="trim">{t('Trim whitespaces')}</option>
+					<option value="all">{t('Ignore whitespaces')}</option>
+				</select>
+				<select title={t('Highlighting')} value={settings.highlight} onChange={(e) => updateSettings({ highlight: (e.target as HTMLSelectElement).value as MergeSettings['highlight'] })}>
+					<option value="words">{t('Highlight words')}</option>
+					<option value="lines">{t('Highlight lines')}</option>
+					<option value="none">{t('Do not highlight')}</option>
+				</select>
+				<IconButton icon="word-wrap" title={t('Use soft wraps')} active={settings.softWrap} onClick={() => updateSettings({ softWrap: !settings.softWrap })} />
 				<span class="spacer" />
 				<span class="jg-muted counter">
 					{unresolved.length === 0 ? t('All changes have been processed') : `${plural(unresolved.length, '{0} change left', '{0} changes left')} · ${plural(conflictsLeft, '{0} conflict', '{0} conflicts')}`}
@@ -402,8 +495,37 @@ function App() {
 				<div />
 				<div class="title">{data.rightTitle}</div>
 			</div>
-			<div ref={bodyRef} class="m-body jg-code" style={{ '--lnw': lnw } as any}>
-				{model.blocks.map((b, i) => (b.type === 'stable' ? renderStable(b, i) : renderChange(b, i)))}
+			<div
+				class={`m-body jg-code${settings.softWrap ? ' wrap' : ''}${settings.highlight === 'none' ? ' hl-none' : ''}`}
+				style={{ '--lnw': lnw } as any}
+				onClick={(e) => {
+					const el = (e.target as HTMLElement).closest('[data-chunk]') as HTMLElement | null;
+					if (el) {
+						setCurrent(Number(el.dataset.chunk));
+					}
+				}}
+			>
+				<div ref={leftRef} class="pane l" tabIndex={0}>
+					<div class="content">{leftRows}</div>
+				</div>
+				<div class="divider">
+					<svg ref={leftBands} class="bands" />
+					<div ref={leftLayer} class="acts-layer">
+						{leftActs}
+					</div>
+				</div>
+				<div ref={resultRef} class="pane c" tabIndex={0}>
+					<div class="content">{resultRows}</div>
+				</div>
+				<div class="divider">
+					<svg ref={rightBands} class="bands" />
+					<div ref={rightLayer} class="acts-layer">
+						{rightActs}
+					</div>
+				</div>
+				<div ref={rightRef} class="pane r" tabIndex={0}>
+					<div class="content">{rightRows}</div>
+				</div>
 			</div>
 			<div class="m-footer">
 				<button class="jg-btn" disabled={busy} onClick={() => submit(data.left)} title={t('Use the left version for the whole file')}>

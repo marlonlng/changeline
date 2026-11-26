@@ -207,9 +207,10 @@ test('conflicts dialog and merge window: accept theirs, resolve simple conflicts
 	await m.waitFor(`/changes? left/.test(document.querySelector('.jg-toolbar .counter')?.textContent ?? '')`, 'merge model loaded');
 	const start = await counts();
 	assert.deepEqual(start, { changes: 4, conflicts: 2 }, JSON.stringify(start));
-	assert.ok((await m.count('.m-row.change')) >= 4);
+	assert.ok((await m.count('.pane.c .ch')) >= 4);
+	assert.ok((await m.count('.m-body .bands path')) > 0, 'bands connect the changes with the result');
 
-	const cur = () => m.eval<string>(`document.querySelector('.m-row.change.current')?.dataset.block`);
+	const cur = () => m.eval<string>(`document.querySelector('.pane.c .ch.current')?.dataset.chunk`);
 	const first = await cur();
 	await m.key('F7');
 	await waitFor(async () => (await cur()) !== first, 'F7 moves to the next change');
@@ -219,8 +220,8 @@ test('conflicts dialog and merge window: accept theirs, resolve simple conflicts
 	await m.clickText('.jg-toolbar .jg-btn', 'Apply Non-Conflicting Changes');
 	await m.clickText('.jg-menu .item', 'Apply All Non-Conflicting Changes');
 	assert.deepEqual(await counts(), { changes: 1, conflicts: 1 });
-	await m.click('.m-row.change:not(.resolved) button[title="Accept left change"]');
-	await m.click('.m-row.change:not(.resolved) button[title="Ignore right change"]');
+	await m.click('.acts button[title="Accept left change"]');
+	await m.click('.acts button[title="Ignore right change"]');
 	await m.waitFor(`document.querySelector('.jg-toolbar .counter').textContent === 'All changes have been processed'`, 'all processed');
 	await m.clickText('.m-footer .jg-btn.primary', 'Apply');
 	await waitFor(async () => (await r.refresh(), r.state.conflicts.length === 0), 'merge.txt resolved');

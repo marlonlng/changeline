@@ -54,7 +54,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | Commit details (message, author, date, hash) above diffs from the log and file history (2025.1) | Diff viewer header | E |
 | Compare with Clipboard | Editor → Git menu | E |
 | Conflicts dialog (Accept Yours / Theirs, Merge…) | Opens on conflicts | E, V, S 11 |
-| Three-way merge window with »/«/✕, Apply Non-Conflicting Changes, Resolve Simple Conflicts, Accept Left/Right | Merge window | U, V, S 12, H |
+| Three-way merge window with three editors that scroll together and bands to the result, »/«/✕, Apply Non-Conflicting Changes, Resolve Simple Conflicts, Accept Left/Right, ignore whitespace, highlight words, soft wraps | Merge window | U, V, S 12, H |
 
 ## Git tool window: Log
 

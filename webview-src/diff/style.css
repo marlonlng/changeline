@@ -46,6 +46,16 @@ body.vscode-high-contrast-light {
 	max-width: 280px;
 }
 
+.diff-view .jg-toolbar select {
+	min-width: 0;
+	max-width: 160px;
+	flex-shrink: 1;
+}
+
+.diff-view .jg-toolbar .file-select {
+	max-width: 280px;
+}
+
 .banner {
 	padding: 4px 10px;
 	border-bottom: 1px solid var(--jg-border);
