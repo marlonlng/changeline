@@ -1,4 +1,4 @@
-import { CreatePrParams, Fetcher, HostingProvider, LineCommentParams, PrDetails, PrFile, PrReviewer, PrState, PrTimelineItem, PrUser, PullRequest, request } from './types';
+import { CreatePrParams, Fetcher, HostingError, HostingProvider, LineCommentParams, PrDetails, PrFile, PrReviewer, PrState, PrTimelineItem, PrUpdate, PrUser, PullRequest, request, ReviewVerdict } from './types';
 
 
 function user(u: any): PrUser {
@@ -28,9 +28,26 @@ function fileStatus(s: string): PrFile['status'] {
 	return s === 'added' ? 'A' : s === 'removed' ? 'D' : s === 'renamed' ? 'R' : 'M';
 }
 
+const REVIEW_STATE_QUERY = `query($owner: String!, $repo: String!, $n: Int!) {
+	repository(owner: $owner, name: $repo) {
+		pullRequest(number: $n) {
+			id
+			reviewThreads(first: 100) { nodes { id isResolved comments(first: 1) { nodes { databaseId } } } }
+			files(first: 100) { nodes { path viewerViewedState } }
+		}
+	}
+}`;
+
+interface ReviewState {
+	id: string;
+	threads: Map<string, { id: string; resolved: boolean }>;
+	viewed: Set<string>;
+}
+
 export class GitHubProvider implements HostingProvider {
 	readonly kind = 'github';
 	readonly displayName: string;
+	private readonly reviewStates = new Map<number, ReviewState>();
 
 	constructor(
 		private readonly apiUrl: string,
@@ -51,6 +68,30 @@ export class GitHubProvider implements HostingProvider {
 
 	private get base(): string {
 		return `/repos/${encodeURIComponent(this.owner)}/${encodeURIComponent(this.repo)}`;
+	}
+
+	/** GraphQL endpoint: api.github.com/graphql, or /api/graphql next to the REST API of GitHub Enterprise. */
+	private async graphql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
+		const token = await this.token();
+		const url = this.apiUrl.endsWith('/api/v3') ? `${this.apiUrl.slice(0, -3)}graphql` : `${this.apiUrl}/graphql`;
+		const headers: Record<string, string> = { 'User-Agent': 'Changeline', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+		const res = await request<{ data?: T; errors?: { message: string }[] }>(this.fetcher, url, headers, 'POST', { query, variables });
+		if (res.errors?.length || !res.data) {
+			throw new HostingError(`GraphQL: ${res.errors?.map((e) => e.message).join(', ') ?? 'no data'}`, 400);
+		}
+		return res.data;
+	}
+
+	private async reviewState(n: number): Promise<ReviewState> {
+		const data = await this.graphql<any>(REVIEW_STATE_QUERY, { owner: this.owner, repo: this.repo, n });
+		const p = data.repository.pullRequest;
+		const state: ReviewState = {
+			id: p.id,
+			threads: new Map((p.reviewThreads?.nodes ?? []).map((t: any) => [String(t.comments?.nodes?.[0]?.databaseId), { id: t.id, resolved: !!t.isResolved }])),
+			viewed: new Set((p.files?.nodes ?? []).filter((f: any) => f.viewerViewedState === 'VIEWED').map((f: any) => f.path)),
+		};
+		this.reviewStates.set(n, state);
+		return state;
 	}
 
 	async currentUser(): Promise<PrUser> {
@@ -80,6 +121,7 @@ export class GitHubProvider implements HostingProvider {
 			this.call<any[]>(`${this.base}/pulls/${n}/comments?per_page=300`),
 			this.call<any>(`${this.base}/pulls/${n}/requested_reviewers`).catch(() => ({ users: [] })),
 		]);
+		const state = await this.reviewState(n).catch(() => undefined);
 		let checks: PrDetails['checks'];
 		try {
 			const status = await this.call<any>(`${this.base}/commits/${p.head.sha}/status`);
@@ -113,6 +155,8 @@ export class GitHubProvider implements HostingProvider {
 				diffHunk: c.diff_hunk,
 				inReplyTo: c.in_reply_to_id ? String(c.in_reply_to_id) : undefined,
 				thread: String(c.in_reply_to_id ?? c.id),
+				startLine: c.start_line ?? undefined,
+				resolved: state?.threads.get(String(c.in_reply_to_id ?? c.id))?.resolved,
 			})),
 			...commits.map((c) => ({ id: `k${c.sha}`, kind: 'commit' as const, author: { login: c.author?.login ?? c.commit?.author?.name ?? '' }, createdAt: c.commit?.author?.date, body: c.commit?.message, sha: c.sha })),
 		].sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
@@ -122,9 +166,10 @@ export class GitHubProvider implements HostingProvider {
 			baseSha: p.base?.sha,
 			mergeable: p.mergeable ?? undefined,
 			reviewers: [...reviewerMap.values()],
+			assignees: (p.assignees ?? []).map(user),
 			timeline,
 			commits: commits.map((c) => ({ sha: c.sha, message: c.commit?.message ?? '', author: c.commit?.author?.name ?? '', date: c.commit?.author?.date ?? '' })),
-			files: files.map((f) => ({ path: f.filename, origPath: f.previous_filename, status: fileStatus(f.status), additions: f.additions, deletions: f.deletions })),
+			files: files.map((f) => ({ path: f.filename, origPath: f.previous_filename, status: fileStatus(f.status), additions: f.additions, deletions: f.deletions, viewed: state ? state.viewed.has(f.filename) : undefined })),
 			checks,
 		};
 	}
@@ -160,6 +205,68 @@ export class GitHubProvider implements HostingProvider {
 			return;
 		}
 		await this.call(`${this.base}/pulls/${n}/comments`, 'POST', { body: p.body, commit_id: p.commitSha, path: p.path, line: p.line, side: p.side });
+	}
+
+	async submitReview(n: number, verdict: ReviewVerdict, body: string, comments: LineCommentParams[]): Promise<void> {
+		const event = verdict === 'approve' ? 'APPROVE' : verdict === 'request_changes' ? 'REQUEST_CHANGES' : 'COMMENT';
+		await this.call(`${this.base}/pulls/${n}/reviews`, 'POST', {
+			event,
+			body,
+			...(comments.length ? { commit_id: comments[0].commitSha, comments: comments.map((c) => ({ path: c.path, line: c.line, side: c.side, body: c.body })) } : {}),
+		});
+	}
+
+	async update(n: number, patch: PrUpdate): Promise<void> {
+		if (patch.title !== undefined || patch.body !== undefined) {
+			await this.call(`${this.base}/pulls/${n}`, 'PATCH', { ...(patch.title !== undefined ? { title: patch.title } : {}), ...(patch.body !== undefined ? { body: patch.body } : {}) });
+		}
+		if (patch.labels || patch.assignees) {
+			await this.call(`${this.base}/issues/${n}`, 'PATCH', { ...(patch.labels ? { labels: patch.labels } : {}), ...(patch.assignees ? { assignees: patch.assignees } : {}) });
+		}
+		if (patch.reviewers) {
+			const current: string[] = ((await this.call<any>(`${this.base}/pulls/${n}/requested_reviewers`)).users ?? []).map((u: any) => u.login);
+			const added = patch.reviewers.filter((r) => !current.includes(r));
+			const removed = current.filter((r) => !patch.reviewers!.includes(r));
+			if (added.length) {
+				await this.call(`${this.base}/pulls/${n}/requested_reviewers`, 'POST', { reviewers: added });
+			}
+			if (removed.length) {
+				await this.call(`${this.base}/pulls/${n}/requested_reviewers`, 'DELETE', { reviewers: removed });
+			}
+		}
+	}
+
+	async markReady(n: number): Promise<void> {
+		const state = this.reviewStates.get(n) ?? (await this.reviewState(n));
+		await this.graphql('mutation($id: ID!) { markPullRequestReadyForReview(input: { pullRequestId: $id }) { clientMutationId } }', { id: state.id });
+	}
+
+	async resolveThread(n: number, thread: string, resolved: boolean): Promise<void> {
+		let state = this.reviewStates.get(n);
+		if (!state?.threads.has(thread)) {
+			state = await this.reviewState(n);
+		}
+		const id = state.threads.get(thread)?.id;
+		if (!id) {
+			throw new HostingError(`Review thread ${thread} not found`, 404);
+		}
+		const mutation = resolved ? 'resolveReviewThread' : 'unresolveReviewThread';
+		await this.graphql(`mutation($id: ID!) { ${mutation}(input: { threadId: $id }) { clientMutationId } }`, { id });
+		state.threads.set(thread, { id, resolved });
+	}
+
+	async setViewed(n: number, path: string, viewed: boolean): Promise<boolean> {
+		const state = this.reviewStates.get(n) ?? (await this.reviewState(n));
+		const mutation = viewed ? 'markFileAsViewed' : 'unmarkFileAsViewed';
+		await this.graphql(`mutation($id: ID!, $path: String!) { ${mutation}(input: { pullRequestId: $id, path: $path }) { clientMutationId } }`, { id: state.id, path });
+		return true;
+	}
+
+	async candidates(kind: 'users' | 'labels'): Promise<string[]> {
+		if (kind === 'labels') {
+			return (await this.call<any[]>(`${this.base}/labels?per_page=100`)).map((l) => l.name);
+		}
+		return (await this.call<any[]>(`${this.base}/assignees?per_page=100`)).map((u) => u.login);
 	}
 
 	headRefSpec(n: number): string {

@@ -43,6 +43,8 @@ export interface PrTimelineItem {
 	inReplyTo?: string;
 	thread?: string;
 	sha?: string;
+	startLine?: number;
+	resolved?: boolean;
 }
 
 export interface PrFile {
@@ -51,6 +53,7 @@ export interface PrFile {
 	status: 'A' | 'M' | 'D' | 'R';
 	additions: number;
 	deletions: number;
+	viewed?: boolean;
 }
 
 export interface PrCommit {
@@ -65,6 +68,7 @@ export interface PrDetails extends PullRequest {
 	baseSha: string;
 	mergeable?: boolean;
 	reviewers: PrReviewer[];
+	assignees: PrUser[];
 	timeline: PrTimelineItem[];
 	commits: PrCommit[];
 	files: PrFile[];
@@ -91,6 +95,16 @@ export interface LineCommentParams {
 	inReplyTo?: string;
 }
 
+export interface PrUpdate {
+	title?: string;
+	body?: string;
+	labels?: string[];
+	assignees?: string[];
+	reviewers?: string[];
+}
+
+export type ReviewVerdict = 'approve' | 'request_changes' | 'comment';
+
 export interface HostingProvider {
 	readonly kind: 'github' | 'gitlab';
 	readonly displayName: string;
@@ -104,6 +118,15 @@ export interface HostingProvider {
 	comment(n: number, body: string): Promise<void>;
 	review(n: number, verdict: 'approve' | 'request_changes' | 'comment', body: string): Promise<void>;
 	lineComment(n: number, params: LineCommentParams): Promise<void>;
+	/** Submits a review with the comments collected while reviewing (JetBrains: Start Review, then Submit). */
+	submitReview(n: number, verdict: ReviewVerdict, body: string, comments: LineCommentParams[]): Promise<void>;
+	update(n: number, patch: PrUpdate): Promise<void>;
+	markReady(n: number, title: string): Promise<void>;
+	resolveThread(n: number, thread: string, resolved: boolean): Promise<void>;
+	/** Stores the viewed state of a file on the server; false when the server has none, so the caller keeps it locally. */
+	setViewed(n: number, path: string, viewed: boolean): Promise<boolean>;
+	/** User names that can be reviewers or assignees, or the labels of the project. */
+	candidates(kind: 'users' | 'labels'): Promise<string[]>;
 	/** Ref name that contains the head of the request on the base remote. */
 	headRefSpec(n: number): string;
 }

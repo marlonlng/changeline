@@ -42,15 +42,18 @@ interface TimelineItem {
 	line?: number;
 	diffHunk?: string;
 	sha?: string;
+	resolved?: boolean;
 }
 
 interface Details extends PullRequest {
 	body: string;
 	mergeable?: boolean;
 	reviewers: { user: PrUser; state: string }[];
+	assignees: PrUser[];
 	timeline: TimelineItem[];
 	commits: { sha: string; message: string; author: string; date: string }[];
-	files: { path: string; origPath?: string; status: string; additions: number; deletions: number }[];
+	files: { path: string; origPath?: string; status: string; additions: number; deletions: number; viewed?: boolean }[];
+	pending: number;
 	checks?: { state: string; total?: number; pipeline?: string };
 	commentsHidden?: boolean;
 }
@@ -123,6 +126,7 @@ function App() {
 	const [busy, setBusy] = useState(false);
 	const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 	const [selFiles, setSelFiles] = useState<string[]>([]);
+	const [editing, setEditing] = useState<{ field: 'title' | 'body'; value: string } | null>(null);
 	const [listWidth, onSplit] = useSplitter('prs', 380, { min: 240, max: 800 });
 
 	const stateRef = useRef(state);
@@ -302,11 +306,32 @@ function App() {
 									<span class={`state-badge ${stateIcon(details).cls}`}>
 										<Icon name={stateIcon(details).icon} /> {stateIcon(details).label}
 									</span>
-									<span class="title">{details.title}</span>
+									{editing?.field === 'title' ? (
+										<input
+											class="title-input"
+											value={editing.value}
+											ref={(el) => {
+												if (el) {
+													setTimeout(() => el.focus(), 0);
+												}
+											}}
+											onInput={(e) => setEditing({ field: 'title', value: (e.target as HTMLInputElement).value })}
+											onKeyDown={(e) => {
+												if (e.key === 'Enter' && editing.value.trim()) {
+													void act('edit', { number: details.number, title: editing.value.trim() }).then(() => setEditing(null));
+												} else if (e.key === 'Escape') {
+													setEditing(null);
+												}
+											}}
+										/>
+									) : (
+										<span class="title">{details.title}</span>
+									)}
 									<span class="jg-muted">
 										{prefix}
 										{details.number}
 									</span>
+									{details.state === 'open' && !editing && <IconButton icon="edit" title={t('Edit Title')} onClick={() => setEditing({ field: 'title', value: details.title })} />}
 								</div>
 								<div class="jg-muted sub">
 									{tx('{0} wants to merge {1} into {2} · opened {3}', <b>{details.author.login}</b>, <code>{details.headRef}</code>, <code>{details.baseRef}</code>, formatDate(unix(details.createdAt), 'relative'))}
@@ -341,6 +366,11 @@ function App() {
 											</button>
 										</span>
 									)}
+									{details.state === 'open' && details.draft && (
+										<button class="jg-btn" disabled={busy} onClick={() => act('markReady', { number: details.number })}>
+											<Icon name="eye" /> {t('Ready for Review')}
+										</button>
+									)}
 									{details.state === 'open' ? (
 										<button class="jg-btn" disabled={busy} onClick={() => act('setState', { number: details.number, state: 'closed' })}>
 											{t('Close')}
@@ -367,18 +397,52 @@ function App() {
 							<div class="pr-body jg-scroll">
 								{tab === 'overview' && (
 									<div class="overview">
-										{details.body.trim() ? <Markdown text={details.body} /> : <p class="jg-muted">{t('No description provided.')}</p>}
-										{details.reviewers.length > 0 && (
-											<div class="reviewers">
-												<div class="section-title">{t('Reviewers')}</div>
-												{details.reviewers.map((r) => (
-													<div class={`reviewer ${r.state}`}>
-														<Icon name={r.state === 'approved' ? 'pass-filled' : r.state === 'changes_requested' ? 'error' : r.state === 'pending' ? 'clock' : 'comment'} /> {r.user.login}{' '}
-														<span class="jg-muted">{r.state.replace('_', ' ')}</span>
-													</div>
-												))}
+										{editing?.field === 'body' ? (
+											<div class="composer">
+												<textarea rows={8} value={editing.value} onInput={(e) => setEditing({ field: 'body', value: (e.target as HTMLTextAreaElement).value })} />
+												<div class="composer-buttons">
+													<span class="spacer" />
+													<button class="jg-btn" onClick={() => setEditing(null)}>
+														{t('Cancel')}
+													</button>
+													<button class="jg-btn primary" disabled={busy} onClick={() => act('edit', { number: details.number, body: editing.value }).then(() => setEditing(null))}>
+														{t('Save')}
+													</button>
+												</div>
+											</div>
+										) : (
+											<div class="description">
+												{details.body.trim() ? <Markdown text={details.body} /> : <p class="jg-muted">{t('No description provided.')}</p>}
+												{details.state === 'open' && (
+													<button class="jg-link" onClick={() => setEditing({ field: 'body', value: details.body })}>
+														{t('Edit Description')}
+													</button>
+												)}
 											</div>
 										)}
+										<div class="reviewers">
+											<div class="section-title">
+												{t('Reviewers')}
+												{details.state === 'open' && <IconButton icon="edit" title={t('Edit Reviewers')} onClick={() => act('editList', { number: details.number, kind: 'reviewers' })} />}
+											</div>
+											{details.reviewers.length === 0 && <div class="jg-muted">{t('No reviewers')}</div>}
+											{details.reviewers.map((r) => (
+												<div class={`reviewer ${r.state}`}>
+													<Icon name={r.state === 'approved' ? 'pass-filled' : r.state === 'changes_requested' ? 'error' : r.state === 'pending' ? 'clock' : 'comment'} /> {r.user.login}{' '}
+													<span class="jg-muted">{r.state.replace('_', ' ')}</span>
+												</div>
+											))}
+											<div class="section-title">
+												{t('Assignees')}
+												{details.state === 'open' && <IconButton icon="edit" title={t('Edit Assignees')} onClick={() => act('editList', { number: details.number, kind: 'assignees' })} />}
+											</div>
+											<div class={details.assignees.length ? '' : 'jg-muted'}>{details.assignees.length ? details.assignees.map((u) => u.login).join(', ') : t('No assignees')}</div>
+											<div class="section-title">
+												{t('Labels')}
+												{details.state === 'open' && <IconButton icon="edit" title={t('Edit Labels')} onClick={() => act('editList', { number: details.number, kind: 'labels' })} />}
+											</div>
+											<div class="labels">{details.labels.length ? details.labels.map((l) => <span class="label">{l}</span>) : <span class="jg-muted">{t('No labels')}</span>}</div>
+										</div>
 										<div class="section-title">{t('Timeline')}</div>
 										{details.commentsHidden && (
 											<p class="notice">
@@ -405,6 +469,7 @@ function App() {
 																		: t('commented')}{' '}
 															· {formatDate(unix(timelineItem.createdAt), 'relative')}
 														</span>
+														{timelineItem.resolved && <span class="badge">{t('Resolved')}</span>}
 														{timelineItem.kind === 'commit' && timelineItem.sha && (
 															<a class="jg-link mono" onClick={() => call('openCommit', { number: details.number, sha: timelineItem.sha })}>
 																{timelineItem.sha.slice(0, 8)}
@@ -422,16 +487,30 @@ function App() {
 											))}
 										</div>
 										<div class="composer">
-											<textarea placeholder={t('Leave a comment')} rows={4} value={comment} onInput={(e) => setComment((e.target as HTMLTextAreaElement).value)} />
+											{details.pending > 0 && (
+												<div class="pending-review">
+													<Icon name="comment-draft" /> {plural(details.pending, '{0} pending review comment', '{0} pending review comments')}
+													<button class="jg-link" disabled={busy} onClick={() => act('discardReview', { number: details.number })}>
+														{t('Discard')}
+													</button>
+												</div>
+											)}
+											<textarea placeholder={details.pending > 0 ? t('Review summary (optional)') : t('Leave a comment')} rows={4} value={comment} onInput={(e) => setComment((e.target as HTMLTextAreaElement).value)} />
 											<div class="composer-buttons">
-												<button class="jg-btn" disabled={busy || !comment.trim()} onClick={() => act('comment', { number: details.number, body: comment }).then(() => setComment(''))}>
-													{t('Comment')}
-												</button>
+												{details.pending > 0 ? (
+													<button class="jg-btn" disabled={busy} onClick={() => act('submitReview', { number: details.number, verdict: 'comment', body: comment }).then(() => setComment(''))}>
+														{t('Submit Review')}
+													</button>
+												) : (
+													<button class="jg-btn" disabled={busy || !comment.trim()} onClick={() => act('comment', { number: details.number, body: comment }).then(() => setComment(''))}>
+														{t('Comment')}
+													</button>
+												)}
 												<span class="spacer" />
-												<button class="jg-btn" disabled={busy} onClick={() => act('review', { number: details.number, verdict: 'request_changes', body: comment }).then(() => setComment(''))}>
+												<button class="jg-btn" disabled={busy} onClick={() => act(details.pending > 0 ? 'submitReview' : 'review', { number: details.number, verdict: 'request_changes', body: comment }).then(() => setComment(''))}>
 													{t('Request Changes')}
 												</button>
-												<button class="jg-btn primary" disabled={busy} onClick={() => act('review', { number: details.number, verdict: 'approve', body: comment }).then(() => setComment(''))}>
+												<button class="jg-btn primary" disabled={busy} onClick={() => act(details.pending > 0 ? 'submitReview' : 'review', { number: details.number, verdict: 'approve', body: comment }).then(() => setComment(''))}>
 													{t('Approve')}
 												</button>
 											</div>
@@ -459,7 +538,11 @@ function App() {
 											selected={selFiles}
 											onSelect={setSelFiles}
 											onOpen={(f) => call('openFile', { number: details.number, path: f.path })}
+											checked={(f) => details.files.find((x) => x.path === f.path)?.viewed ?? false}
+											checkTitle={t('Viewed')}
+											onCheck={(f, viewed) => act('setViewed', { number: details.number, path: f.path, viewed })}
 										/>
+										<div class="jg-muted viewed-count">{t('{0} of {1} files viewed', details.files.filter((f) => f.viewed).length, details.files.length)}</div>
 										<div class="file-stats jg-muted">
 											{t('{0} additions, {1} deletions', details.files.reduce((n, f) => n + f.additions, 0), details.files.reduce((n, f) => n + f.deletions, 0))} ·{' '}
 											{details.files

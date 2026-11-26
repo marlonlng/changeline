@@ -23,12 +23,20 @@ export interface ReviewComment {
 	side: 'LEFT' | 'RIGHT';
 	inReplyTo?: string;
 	thread?: string;
+	resolved?: boolean;
+	pending?: boolean;
+	startLine?: number;
 }
 
 export interface DiffReview {
 	title: string;
 	comments: ReviewComment[];
-	submit(comment: { line: number; side: 'LEFT' | 'RIGHT'; body: string; inReplyTo?: string }): Promise<ReviewComment[]>;
+	/** Number of comments waiting in the pending review. */
+	pending(): number;
+	/** Posts a comment right away, or adds it to the pending review with mode 'review'. */
+	submit(comment: { line: number; side: 'LEFT' | 'RIGHT'; body: string; inReplyTo?: string }, mode?: 'single' | 'review'): Promise<ReviewComment[]>;
+	resolve?(thread: string, resolved: boolean): Promise<ReviewComment[]>;
+	applySuggestion?(commentId: string): Promise<void>;
 }
 
 export interface DiffTarget {

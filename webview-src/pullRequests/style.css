@@ -351,3 +351,42 @@ body {
 	padding: 8px 10px;
 	font-size: 0.9em;
 }
+
+.section-title .jg-icon-btn,
+.section-title button {
+	margin-left: 4px;
+	vertical-align: middle;
+}
+
+.pr-heading .title-input {
+	flex: 1;
+	min-width: 0;
+	font: inherit;
+	font-weight: 600;
+}
+
+.badge {
+	display: inline-block;
+	padding: 0 5px;
+	margin-left: 6px;
+	border-radius: 8px;
+	font-size: 0.85em;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+}
+
+.pending-review {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 6px;
+}
+
+.viewed-count {
+	padding: 4px 8px;
+}
+
+.jg-file-tree .file-check {
+	margin: 0 4px 0 0;
+}
+

@@ -164,6 +164,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<Change
 	});
 	ctx.register('changeline.pullRequests.show', () => vscode.commands.executeCommand('changeline.pullRequests.focus'));
 	ctx.register('changeline.pullRequests.refresh', () => pullRequests.refresh());
+	ctx.register('changeline.pr.addComment', (reply: vscode.CommentReply) => pullRequests.editorComments.submit(reply, 'single'));
+	ctx.register('changeline.pr.startReview', (reply: vscode.CommentReply) => pullRequests.editorComments.submit(reply, 'review'));
+	ctx.register('changeline.pr.resolveThread', (thread: vscode.CommentThread) => pullRequests.editorComments.resolve(thread, true));
+	ctx.register('changeline.pr.unresolveThread', (thread: vscode.CommentThread) => pullRequests.editorComments.resolve(thread, false));
 	ctx.register('changeline.hosting.signOut', async () => {
 		const { resolveRepo } = await import('./commands/common');
 		const { detectHosting } = await import('./hosting/detect');

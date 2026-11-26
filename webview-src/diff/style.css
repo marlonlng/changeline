@@ -531,3 +531,35 @@ body.vscode-high-contrast-light {
 .diff-body .act.move .codicon {
 	font-size: 12px;
 }
+
+.diff-body .thread.resolved > summary {
+	cursor: pointer;
+	color: var(--jg-muted);
+}
+
+.diff-body .thread.pending {
+	border-left-color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.diff-body .thread-actions {
+	display: flex;
+	gap: 12px;
+	margin-top: 4px;
+}
+
+.diff-body .thread-actions .reply {
+	margin-top: 0;
+}
+
+.diff-body .badge.pending {
+	padding: 0 5px;
+	border-radius: 8px;
+	font-size: 0.85em;
+	background: var(--vscode-editorWarning-foreground, #cca700);
+	color: var(--vscode-editor-background);
+}
+
+.diff-body .apply-suggestion {
+	font-size: 0.9em;
+}
+

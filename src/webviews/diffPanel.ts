@@ -200,7 +200,7 @@ export class DiffPanel extends WebviewPanelBase {
 			fileIndex: this.ctx.index,
 			files: this.ctx.targets.map((x) => ({ path: x.path, status: x.status })),
 			settings: this.settings(),
-			review: t.review ? { title: t.review.title, comments: t.review.comments } : undefined,
+			review: t.review ? { title: t.review.title, comments: t.review.comments, pending: t.review.pending() } : undefined,
 			commit: commit && { hash: commit.hash, subject: commit.subject, body: commit.body, author: commit.author, authorEmail: commit.authorEmail, authorDate: commit.authorDate },
 			focus,
 		};
@@ -282,13 +282,23 @@ export class DiffPanel extends WebviewPanelBase {
 				await vscode.window.showTextDocument(uri, { selection: new vscode.Range(line, 0, line, 0), preview: false, viewColumn: vscode.ViewColumn.Active });
 			},
 			openNative: () => openNativeDiff(this.target),
-			addComment: async (p: { line: number; side: 'LEFT' | 'RIGHT'; body: string; inReplyTo?: string }) => {
+			addComment: async (p: { line: number; side: 'LEFT' | 'RIGHT'; body: string; inReplyTo?: string; mode?: 'single' | 'review' }) => {
 				const review = this.target.review;
 				if (!review) {
 					return;
 				}
-				review.comments = await review.submit(p);
+				review.comments = await review.submit(p, p.mode);
 				await this.reload();
+			},
+			resolveThread: async (p: { thread: string; resolved: boolean }) => {
+				const review = this.target.review;
+				if (review?.resolve) {
+					review.comments = await review.resolve(p.thread, p.resolved);
+					await this.reload();
+				}
+			},
+			applySuggestion: async (p: { id: string }) => {
+				await this.target.review?.applySuggestion?.(p.id);
 			},
 			refresh: () => this.data(),
 			showHistory: () => vscode.commands.executeCommand('changeline.showHistory', vscode.Uri.file(this.target.repo.absolutePath(this.target.path))),

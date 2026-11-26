@@ -143,6 +143,9 @@ export function FileTree(props: {
 	onOpen: (file: FileItem) => void;
 	context?: (file: FileItem) => Record<string, unknown>;
 	emptyText?: string;
+	checked?: (file: FileItem) => boolean | undefined;
+	onCheck?: (file: FileItem, checked: boolean) => void;
+	checkTitle?: string;
 }) {
 	const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 	const rows = useMemo(() => buildRows(props.files, props.groupByDir, collapsed), [props.files, props.groupByDir, collapsed]);
@@ -229,6 +232,16 @@ export function FileTree(props: {
 						) : (
 							<>
 								{props.groupByDir && <span class="twisty" />}
+								{props.checked && props.checked(row.file!) !== undefined && (
+									<input
+										type="checkbox"
+										class="file-check"
+										title={props.checkTitle}
+										checked={props.checked(row.file!)}
+										onClick={(e) => e.stopPropagation()}
+										onChange={(e) => props.onCheck?.(row.file!, (e.target as HTMLInputElement).checked)}
+									/>
+								)}
 								<Icon name={fileIcon(row.file!.status)} className={`st-${row.file!.status}`} />
 								<span class={`name st-${row.file!.status}`}>{row.label}</span>
 								{row.file!.origPath && <span class="detail">← {row.file!.origPath}</span>}

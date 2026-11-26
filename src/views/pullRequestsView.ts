@@ -3,17 +3,29 @@ import { checkoutRef, checkoutRemoteBranch } from '../commands/branches';
 import { DiffTarget, openDiff, ReviewComment, revisionTarget } from '../diff';
 import type { Repository } from '../git/repository';
 import { fetchPullRequest, forgetHosting, Hosting, hostingFor, setToken } from '../hosting/service';
-import type { PrDetails, PrState, PrTimelineItem } from '../hosting/types';
+import type { LineCommentParams, PrDetails, PrState, PrTimelineItem, ReviewVerdict } from '../hosting/types';
 import { services } from '../services';
 import type { FileChange } from '../shared/types';
 import { errorMessage, showError } from '../util';
 import { showDialog } from '../webviews/dialogPanel';
+import { PrEditorComments } from './prEditorComments';
 import { renderWebviewHtml, RpcChannel, webviewOptions } from '../webviews/host';
 
-function reviewComments(details: PrDetails, path: string): ReviewComment[] {
-	return details.timeline
+function reviewComments(details: PrDetails, path: string, pending: LineCommentParams[] = [], me = ''): ReviewComment[] {
+	const posted = details.timeline
 		.filter((t): t is PrTimelineItem & { path: string; line: number } => t.kind === 'reviewComment' && t.path === path && typeof t.line === 'number')
-		.map((t) => ({ id: t.id, author: t.author?.login ?? '', createdAt: t.createdAt, body: t.body ?? '', line: t.line, side: t.side ?? 'RIGHT', inReplyTo: t.inReplyTo, thread: t.thread }));
+		.map((t) => ({ id: t.id, author: t.author?.login ?? '', createdAt: t.createdAt, body: t.body ?? '', line: t.line, side: t.side ?? 'RIGHT', inReplyTo: t.inReplyTo, thread: t.thread, resolved: t.resolved, startLine: t.startLine }));
+	const drafts = pending
+		.map((c, i) => ({ c, i }))
+		.filter(({ c }) => c.path === path)
+		.map(({ c, i }) => ({ id: `pending-${i}`, author: me, createdAt: new Date().toISOString(), body: c.body, line: c.line, side: c.side, thread: `pending-${i}`, pending: true }));
+	return [...posted, ...drafts];
+}
+
+/** Text of the first ```suggestion block of a review comment, or undefined when it has none. */
+export function suggestionText(body: string): string | undefined {
+	const m = /```suggestion[^\n]*\r?\n([\s\S]*?)```/.exec(body);
+	return m ? m[1] : undefined;
 }
 
 export class PullRequestsView implements vscode.WebviewViewProvider, vscode.Disposable {
@@ -22,8 +34,54 @@ export class PullRequestsView implements vscode.WebviewViewProvider, vscode.Disp
 	private rpc?: RpcChannel;
 	private repoRoot?: string;
 	private details = new Map<number, PrDetails>();
+	private me = '';
+	readonly editorComments = new PrEditorComments();
 
 	constructor(private readonly extensionUri: vscode.Uri) {}
+
+	private key(kind: string, n: number): string {
+		return `changeline.pr.${kind}:${this.repo?.root ?? ''}#${n}`;
+	}
+
+	/** Comments collected for the review of a request (JetBrains: Start Review), kept until submitted or discarded. */
+	pending(n: number): LineCommentParams[] {
+		return services().context.workspaceState.get<LineCommentParams[]>(this.key('pending', n), []);
+	}
+
+	private async setPending(n: number, list: LineCommentParams[]): Promise<void> {
+		await services().context.workspaceState.update(this.key('pending', n), list.length ? list : undefined);
+	}
+
+	private localViewed(n: number): string[] {
+		return services().context.workspaceState.get<string[]>(this.key('viewed', n), []);
+	}
+
+	private async loadDetails(n: number): Promise<PrDetails> {
+		const h = await this.hosting(true);
+		const d = await h.provider.details(n);
+		const viewed = new Set(this.localViewed(n));
+		const merged = { ...d, files: d.files.map((f) => ({ ...f, viewed: f.viewed ?? viewed.has(f.path) })) };
+		this.details.set(n, merged);
+		const repo = this.repo;
+		const branch = repo?.state.branch ?? '';
+		if (repo && merged.state === 'open' && (branch === merged.headRef || branch.startsWith(`pr/${n}-`))) {
+			this.editorComments.show({
+				n,
+				repo,
+				details: merged,
+				provider: h.provider,
+				pending: () => this.pending(n),
+				addPending: (c) => this.setPending(n, [...this.pending(n), c]),
+				reload: async () => {
+					await this.loadDetails(n);
+					this.rpc?.emit('updated', n);
+				},
+			});
+		} else if (this.editorComments.active?.n === n) {
+			this.editorComments.hide();
+		}
+		return merged;
+	}
 
 	private get repo(): Repository | undefined {
 		const s = services();
@@ -75,7 +133,8 @@ export class PullRequestsView implements vscode.WebviewViewProvider, vscode.Disp
 			user: async () => {
 				const h = await this.hosting(false);
 				try {
-					return (await h.provider.currentUser()).login;
+					this.me = (await h.provider.currentUser()).login;
+					return this.me;
 				} catch {
 					return undefined;
 				}
@@ -84,11 +143,34 @@ export class PullRequestsView implements vscode.WebviewViewProvider, vscode.Disp
 				const h = await this.hosting(true);
 				return h.provider.list(p.state);
 			},
-			details: async (p: { number: number }) => {
-				const h = await this.hosting(true);
-				const d = await h.provider.details(p.number);
-				this.details.set(p.number, d);
-				return d;
+			details: async (p: { number: number }) => ({ ...(await this.loadDetails(p.number)), pending: this.pending(p.number).length }),
+			edit: async (p: { number: number; title?: string; body?: string }) => {
+				const h = await this.hosting();
+				await h.provider.update(p.number, { title: p.title, body: p.body });
+			},
+			editList: async (p: { number: number; kind: 'labels' | 'assignees' | 'reviewers' }) => this.editList(p.number, p.kind),
+			markReady: async (p: { number: number }) => {
+				const h = await this.hosting();
+				await h.provider.markReady(p.number, this.details.get(p.number)?.title ?? '');
+			},
+			setViewed: async (p: { number: number; path: string; viewed: boolean }) => {
+				const h = await this.hosting();
+				if (!(await h.provider.setViewed(p.number, p.path, p.viewed))) {
+					const set = new Set(this.localViewed(p.number));
+					if (p.viewed) {
+						set.add(p.path);
+					} else {
+						set.delete(p.path);
+					}
+					await services().context.workspaceState.update(this.key('viewed', p.number), [...set]);
+				}
+			},
+			submitReview: (p: { number: number; verdict: ReviewVerdict; body: string }) => this.submitReview(p.number, p.verdict, p.body),
+			discardReview: async (p: { number: number }) => {
+				const ok = await vscode.window.showWarningMessage(vscode.l10n.t('Discard the pending review?'), { modal: true }, vscode.l10n.t('Discard'));
+				if (ok) {
+					await this.setPending(p.number, []);
+				}
 			},
 			checkout: (p: { number: number }) => this.checkout(p.number),
 			open: (p: { url: string }) => vscode.env.openExternal(vscode.Uri.parse(p.url)),
@@ -143,7 +225,7 @@ export class PullRequestsView implements vscode.WebviewViewProvider, vscode.Disp
 	private async checkout(n: number): Promise<void> {
 		const repo = this.repo!;
 		const h = await this.hosting();
-		const d = this.details.get(n) ?? (await h.provider.details(n));
+		const d = this.details.get(n) ?? (await this.loadDetails(n));
 		await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Checking out #{0}...', n) }, async () => {
 			if (!d.headRepoUrl) {
 				await repo.fetch(h.target.remote);
@@ -158,6 +240,8 @@ export class PullRequestsView implements vscode.WebviewViewProvider, vscode.Disp
 			await repo.run(['fetch', '--no-tags', h.target.remote, `+${h.provider.headRefSpec(n)}:refs/heads/${local}`], { log: true });
 			await checkoutRef(repo, local);
 		});
+		await repo.refresh();
+		await this.loadDetails(n);
 	}
 
 	/** Diff of all files of a request, with review comments shown and addable in the diff viewer. */
@@ -171,7 +255,7 @@ export class PullRequestsView implements vscode.WebviewViewProvider, vscode.Disp
 	async reviewTargets(n: number): Promise<{ targets: DiffTarget[]; files: PrDetails['files'] }> {
 		const repo = this.repo!;
 		const h = await this.hosting();
-		let d = this.details.get(n) ?? (await h.provider.details(n));
+		let d = this.details.get(n) ?? (await this.loadDetails(n));
 		const head = await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: vscode.l10n.t('Fetching #{0}', n) }, () => fetchPullRequest(repo, h, n));
 		const headSha = (await repo.revParse(head)) ?? d.headSha;
 		if (!(await repo.revParse(d.baseSha))) {
@@ -187,18 +271,86 @@ export class PullRequestsView implements vscode.WebviewViewProvider, vscode.Disp
 				rightTitle: `#${n} ${d.headRef} (${headSha.slice(0, 8)})`,
 				review: {
 					title: `#${n} ${d.title}`,
-					comments: reviewComments(d, f.path),
-					submit: async (c) => {
-						await h.provider.lineComment(n, { body: c.body, path: f.path, line: c.line, side: c.side, commitSha: headSha, baseSha: base, inReplyTo: c.inReplyTo });
-						d = await h.provider.details(n);
-						this.details.set(n, d);
+					comments: reviewComments(d, f.path, this.pending(n), this.me),
+					pending: () => this.pending(n).length,
+					submit: async (c, mode = 'single') => {
+						const params: LineCommentParams = { body: c.body, path: f.path, line: c.line, side: c.side, commitSha: headSha, baseSha: base, inReplyTo: c.inReplyTo };
+						if (mode === 'review' && !c.inReplyTo) {
+							await this.setPending(n, [...this.pending(n), params]);
+						} else {
+							await h.provider.lineComment(n, params);
+							d = await this.loadDetails(n);
+						}
 						this.rpc?.emit('updated', n);
-						return reviewComments(d, f.path);
+						return reviewComments(d, f.path, this.pending(n), this.me);
 					},
+					resolve: async (thread, resolved) => {
+						await h.provider.resolveThread(n, thread, resolved);
+						d = await this.loadDetails(n);
+						this.rpc?.emit('updated', n);
+						return reviewComments(d, f.path, this.pending(n), this.me);
+					},
+					applySuggestion: (id) => this.applySuggestion(n, d, id),
 				},
 			};
 		});
 		return { targets, files: d.files };
+	}
+
+	/** Submits the pending review with its collected comments. */
+	async submitReview(n: number, verdict: ReviewVerdict, body: string): Promise<void> {
+		const h = await this.hosting();
+		await h.provider.submitReview(n, verdict, body, this.pending(n));
+		await this.setPending(n, []);
+	}
+
+	/** JetBrains "Apply Suggestion": replaces the commented lines of the local file with the suggested text. */
+	private async applySuggestion(n: number, d: PrDetails, id: string): Promise<void> {
+		const repo = this.repo!;
+		const c = d.timeline.find((t) => t.id === id);
+		const text = c?.body !== undefined ? suggestionText(c.body) : undefined;
+		if (!c?.path || !c.line || text === undefined) {
+			return;
+		}
+		const branch = repo.state.branch ?? '';
+		if (branch !== d.headRef && !branch.startsWith(`pr/${n}-`)) {
+			const ok = await vscode.window.showWarningMessage(vscode.l10n.t('The branch of #{0} is not checked out. Apply the suggestion to the local file anyway?', n), { modal: true }, vscode.l10n.t('Apply'));
+			if (!ok) {
+				return;
+			}
+		}
+		const uri = vscode.Uri.file(repo.absolutePath(c.path));
+		const doc = await vscode.workspace.openTextDocument(uri).then(undefined, () => undefined);
+		if (!doc) {
+			throw new Error(vscode.l10n.t('{0} does not exist locally. Check out the pull request to apply suggestions.', c.path));
+		}
+		const from = Math.max(0, (c.startLine ?? c.line) - 1);
+		const to = Math.min(doc.lineCount, c.line);
+		const edit = new vscode.WorkspaceEdit();
+		const eol = doc.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
+		edit.replace(uri, new vscode.Range(from, 0, to, 0), text.replace(/\r?\n/g, eol));
+		await vscode.workspace.applyEdit(edit);
+		await vscode.window.showTextDocument(doc, { selection: new vscode.Range(from, 0, from, 0) });
+	}
+
+	/** JetBrains' editors for reviewers, assignees and labels: a multi-select list with the current values checked. */
+	private async editList(n: number, kind: 'labels' | 'assignees' | 'reviewers'): Promise<boolean> {
+		const h = await this.hosting();
+		const d = this.details.get(n) ?? (await this.loadDetails(n));
+		const current = kind === 'labels' ? d.labels : kind === 'assignees' ? d.assignees.map((u) => u.login) : d.reviewers.map((r) => r.user.login);
+		const candidates = await h.provider.candidates(kind === 'labels' ? 'labels' : 'users');
+		const names = [...new Set([...current, ...candidates])];
+		const title = kind === 'labels' ? vscode.l10n.t('Labels') : kind === 'assignees' ? vscode.l10n.t('Assignees') : vscode.l10n.t('Reviewers');
+		const picked = await vscode.window.showQuickPick(
+			names.map((name) => ({ label: name, picked: current.includes(name) })),
+			{ canPickMany: true, title: `${title} · #${n}` },
+		);
+		if (!picked) {
+			return false;
+		}
+		const values = picked.map((p) => p.label);
+		await h.provider.update(n, kind === 'labels' ? { labels: values } : kind === 'assignees' ? { assignees: values } : { reviewers: values });
+		return true;
 	}
 
 	private async openCommit(n: number, sha: string): Promise<void> {
@@ -212,6 +364,7 @@ export class PullRequestsView implements vscode.WebviewViewProvider, vscode.Disp
 
 	dispose(): void {
 		this.rpc?.dispose();
+		this.editorComments.dispose();
 	}
 }
 

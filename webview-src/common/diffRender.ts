@@ -14,6 +14,8 @@ export interface ReviewComment {
 	line: number;
 	side: 'LEFT' | 'RIGHT';
 	thread?: string;
+	resolved?: boolean;
+	pending?: boolean;
 }
 
 export type Threads = Map<string, ReviewComment[]>;
@@ -36,11 +38,32 @@ export function threadHtml(item: Threads, side: 'LEFT' | 'RIGHT', from: number, 
 		if (!list) {
 			continue;
 		}
-		const items = list
-			.map((c) => `<div class="cmt"><div class="cmt-head"><b>${escapeHtml(c.author)}</b> <span class="cmt-meta">${escapeHtml(t('line {0}', c.line))} · ${escapeHtml(new Date(c.createdAt).toLocaleString(language))}</span></div><div class="cmt-body">${md.render(c.body)}</div></div>`)
-			.join('');
-		const root = list[0];
-		parts.push(`<div class="thread">${items}<button class="jg-link reply" data-reply="${escapeHtml(root.thread ?? root.id)}" data-rline="${line}" data-rside="${side}">${escapeHtml(t('Reply'))}</button></div>`);
+		const threads = new Map<string, ReviewComment[]>();
+		for (const c of list) {
+			const key = c.thread ?? c.id;
+			threads.set(key, [...(threads.get(key) ?? []), c]);
+		}
+		for (const [thread, comments] of threads) {
+			const pending = comments.every((c) => c.pending);
+			const resolvable = comments.some((c) => c.resolved !== undefined);
+			const resolved = comments.some((c) => c.resolved);
+			const items = comments
+				.map((c) => {
+					const badge = c.pending ? `<span class="badge pending">${escapeHtml(t('Pending'))}</span> ` : '';
+					const suggestion = !c.pending && /```suggestion\b/.test(c.body) ? `<button class="jg-link apply-suggestion" data-suggest="${escapeHtml(c.id)}">${escapeHtml(t('Apply Suggestion'))}</button>` : '';
+					return `<div class="cmt${c.pending ? ' pending' : ''}"><div class="cmt-head"><b>${escapeHtml(c.author)}</b> ${badge}<span class="cmt-meta">${escapeHtml(t('line {0}', c.line))} · ${escapeHtml(new Date(c.createdAt).toLocaleString(language))}</span></div><div class="cmt-body">${md.render(c.body)}</div>${suggestion}</div>`;
+				})
+				.join('');
+			const reply = `<button class="jg-link reply" data-reply="${escapeHtml(thread)}" data-rline="${line}" data-rside="${side}">${escapeHtml(t('Reply'))}</button>`;
+			const resolve = resolvable ? `<button class="jg-link resolve" data-resolve="${escapeHtml(thread)}" data-resolved="${resolved ? '0' : '1'}">${escapeHtml(resolved ? t('Unresolve') : t('Resolve'))}</button>` : '';
+			const actions = pending ? '' : `<div class="thread-actions">${reply}${resolve}</div>`;
+			if (resolved) {
+				const first = comments[0];
+				parts.push(`<details class="thread resolved"><summary>${escapeHtml(t('Resolved'))} · <b>${escapeHtml(first.author)}</b>: ${escapeHtml(first.body.split('\n')[0].slice(0, 120))}</summary>${items}${actions}</details>`);
+			} else {
+				parts.push(`<div class="thread${pending ? ' pending' : ''}">${items}${actions}</div>`);
+			}
+		}
 	}
 	return parts.join('');
 }
@@ -77,7 +100,7 @@ export interface DiffData {
 	fileIndex: number;
 	files: { path: string; status: string }[];
 	settings: Settings;
-	review?: { title: string; comments: ReviewComment[] };
+	review?: { title: string; comments: ReviewComment[]; pending: number };
 	fileList?: string;
 	chunkLists?: Record<string, string>;
 	focus?: LineChange;

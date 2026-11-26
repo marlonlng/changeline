@@ -179,6 +179,89 @@ test('GitLab client: merge requests with discussions and approvals', async () =>
 	assert.equal(gl.headRefSpec(4), 'refs/merge-requests/4/head');
 });
 
+test('GitHub client: review state, metadata, ready for review, resolve, viewed and pending review', async () => {
+	const gh = new GitHubProvider(base, 'https://github.com/acme/site', 'acme', 'site', async () => 'tok', fetcher);
+	const pr7 = { number: 7, title: 'PR 7', state: 'open', draft: true, user: { login: 'anna' }, created_at: '2026-01-01T10:00:00Z', updated_at: '2026-01-01T10:00:00Z', html_url: 'https://github.com/acme/site/pull/7', head: { ref: 'f', sha: 'h7', repo: { full_name: 'acme/site' } }, base: { ref: 'main', sha: 'b7', repo: { full_name: 'acme/site' } }, labels: [], assignees: [{ login: 'lea' }], body: '' };
+	routes['GET /repos/acme/site/pulls/7'] = () => pr7;
+	routes['GET /repos/acme/site/pulls/7/commits'] = () => [];
+	routes['GET /repos/acme/site/pulls/7/files'] = () => [{ filename: 'a.php', status: 'modified', additions: 1, deletions: 1 }, { filename: 'b.php', status: 'modified', additions: 1, deletions: 0 }];
+	routes['GET /repos/acme/site/issues/7/comments'] = () => [];
+	routes['GET /repos/acme/site/pulls/7/reviews'] = () => [];
+	routes['GET /repos/acme/site/pulls/7/comments'] = () => [{ id: 70, user: { login: 'lea' }, created_at: '2026-01-01T12:00:00Z', body: '```suggestion\nfoo();\n```', path: 'a.php', line: 3, start_line: 2, side: 'RIGHT' }];
+	routes['GET /repos/acme/site/pulls/7/requested_reviewers'] = () => ({ users: [{ login: 'lea' }, { login: 'old' }] });
+	routes['GET /repos/acme/site/commits/h7/status'] = () => ({ state: 'pending', total_count: 0 });
+	const mutations: { query: string; variables: any }[] = [];
+	routes['POST /graphql'] = (b) => {
+		if (b.query.includes('reviewThreads')) {
+			return { data: { repository: { pullRequest: { id: 'PR_7', reviewThreads: { nodes: [{ id: 'T70', isResolved: true, comments: { nodes: [{ databaseId: 70 }] } }] }, files: { nodes: [{ path: 'a.php', viewerViewedState: 'VIEWED' }, { path: 'b.php', viewerViewedState: 'UNVIEWED' }] } } } } };
+		}
+		mutations.push(b);
+		return { data: {} };
+	};
+	const d = await gh.details(7);
+	assert.deepEqual(d.assignees.map((u) => u.login), ['lea']);
+	assert.deepEqual(d.files.map((f) => f.viewed), [true, false]);
+	const rc = d.timeline.find((t) => t.kind === 'reviewComment')!;
+	assert.deepEqual([rc.resolved, rc.startLine], [true, 2]);
+
+	await gh.resolveThread(7, '70', false);
+	assert.match(mutations.at(-1)!.query, /unresolveReviewThread/);
+	assert.equal(mutations.at(-1)!.variables.id, 'T70');
+	assert.equal(await gh.setViewed(7, 'b.php', true), true);
+	assert.match(mutations.at(-1)!.query, /markFileAsViewed/);
+	assert.deepEqual(mutations.at(-1)!.variables, { id: 'PR_7', path: 'b.php' });
+	await gh.markReady(7);
+	assert.match(mutations.at(-1)!.query, /markPullRequestReadyForReview/);
+
+	routes['PATCH /repos/acme/site/pulls/7'] = () => pr7;
+	routes['PATCH /repos/acme/site/issues/7'] = () => ({});
+	routes['POST /repos/acme/site/pulls/7/requested_reviewers'] = () => ({});
+	routes['DELETE /repos/acme/site/pulls/7/requested_reviewers'] = () => ({});
+	const before = calls.length;
+	await gh.update(7, { title: 'Better', labels: ['bug'], assignees: ['anna'], reviewers: ['lea', 'max'] });
+	const made = calls.slice(before).filter((c) => c.method !== 'GET').map((c) => `${c.method} ${c.path} ${JSON.stringify(c.body)}`);
+	assert.deepEqual(made, [
+		'PATCH /repos/acme/site/pulls/7 {"title":"Better"}',
+		'PATCH /repos/acme/site/issues/7 {"labels":["bug"],"assignees":["anna"]}',
+		'POST /repos/acme/site/pulls/7/requested_reviewers {"reviewers":["max"]}',
+		'DELETE /repos/acme/site/pulls/7/requested_reviewers {"reviewers":["old"]}',
+	]);
+
+	routes['POST /repos/acme/site/pulls/7/reviews'] = () => ({});
+	await gh.submitReview(7, 'request_changes', 'See comments', [{ body: 'Nit', path: 'a.php', line: 4, side: 'RIGHT', commitSha: 'h7', baseSha: 'b7' }]);
+	assert.deepEqual(calls.at(-1)!.body, { event: 'REQUEST_CHANGES', body: 'See comments', commit_id: 'h7', comments: [{ path: 'a.php', line: 4, side: 'RIGHT', body: 'Nit' }] });
+
+	routes['GET /repos/acme/site/labels'] = () => [{ name: 'bug' }, { name: 'docs' }];
+	routes['GET /repos/acme/site/assignees'] = () => [{ login: 'anna' }, { login: 'lea' }];
+	assert.deepEqual(await gh.candidates('labels'), ['bug', 'docs']);
+	assert.deepEqual(await gh.candidates('users'), ['anna', 'lea']);
+});
+
+test('GitLab client: metadata, ready, resolve and pending review', async () => {
+	const gl = new GitLabProvider(base, 'https://gitlab.com/group/project', 'group/project', async () => 'gltok', fetcher);
+	const p = '/projects/group%2Fproject';
+	routes[`PUT ${p}/merge_requests/8`] = () => ({});
+	routes['GET /users'] = (b) => [{ id: 42, username: 'lea' }];
+	await gl.update(8, { title: 'T', body: 'D', labels: ['a', 'b'], assignees: ['lea'], reviewers: ['lea'] });
+	assert.deepEqual(calls.at(-1)!.body, { title: 'T', description: 'D', labels: 'a,b', assignee_ids: [42], reviewer_ids: [42] });
+	await gl.markReady(8, 'Draft: Make it work');
+	assert.deepEqual(calls.at(-1)!.body, { title: 'Make it work' });
+	routes[`PUT ${p}/merge_requests/8/discussions/d9`] = () => ({});
+	await gl.resolveThread(8, 'd:d9', true);
+	assert.deepEqual(calls.at(-1)!.body, { resolved: true });
+	assert.equal(await gl.setViewed(), false);
+	routes[`GET ${p}/merge_requests/8`] = () => ({ iid: 8, diff_refs: { base_sha: 'b', start_sha: 's', head_sha: 'h' } });
+	routes[`POST ${p}/merge_requests/8/discussions`] = () => ({});
+	routes[`POST ${p}/merge_requests/8/approve`] = () => ({});
+	const before = calls.length;
+	await gl.submitReview(8, 'approve', '', [{ body: 'One', path: 'x.ts', line: 1, side: 'RIGHT', commitSha: 'h', baseSha: 'b' }]);
+	assert.deepEqual(calls.slice(before).filter((c) => c.method === 'POST').map((c) => c.path), [`${p}/merge_requests/8/discussions`, `${p}/merge_requests/8/approve`]);
+	routes[`GET ${p}/labels`] = () => [{ name: 'feature' }];
+	routes[`GET ${p}/members/all`] = () => [{ username: 'anna' }];
+	assert.deepEqual(await gl.candidates('labels'), ['feature']);
+	assert.deepEqual(await gl.candidates('users'), ['anna']);
+});
+
 test('GitHub account calls: create repository, gist and list repositories', async () => {
 	const { createGitHubRepository, createGist, listUserRepositories } = await import('../../hosting/github');
 	routes['POST /user/repos'] = (b) => ({ clone_url: `https://github.com/me/${b.name}.git`, ssh_url: `git@github.com:me/${b.name}.git`, html_url: `https://github.com/me/${b.name}`, full_name: `me/${b.name}` });

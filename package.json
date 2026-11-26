@@ -1042,6 +1042,28 @@
 				"category": "Changeline"
 			},
 			{
+				"command": "changeline.pr.addComment",
+				"title": "%command.pr.addComment%",
+				"category": "Changeline"
+			},
+			{
+				"command": "changeline.pr.startReview",
+				"title": "%command.pr.startReview%",
+				"category": "Changeline"
+			},
+			{
+				"command": "changeline.pr.resolveThread",
+				"title": "%command.pr.resolveThread%",
+				"category": "Changeline",
+				"icon": "$(check)"
+			},
+			{
+				"command": "changeline.pr.unresolveThread",
+				"title": "%command.pr.unresolveThread%",
+				"category": "Changeline",
+				"icon": "$(discard)"
+			},
+			{
 				"command": "changeline.lineStatus.rollback",
 				"title": "%command.lineStatus.rollback%",
 				"category": "Changeline",
@@ -1430,6 +1452,22 @@
 				},
 				{
 					"command": "changeline.annotate.previous",
+					"when": "false"
+				},
+				{
+					"command": "changeline.pr.addComment",
+					"when": "false"
+				},
+				{
+					"command": "changeline.pr.startReview",
+					"when": "false"
+				},
+				{
+					"command": "changeline.pr.resolveThread",
+					"when": "false"
+				},
+				{
+					"command": "changeline.pr.unresolveThread",
 					"when": "false"
 				},
 				{
@@ -2315,6 +2353,30 @@
 					"command": "changeline.lineStatus.rollback",
 					"when": "originalResourceScheme == changeline",
 					"group": "navigation@4"
+				}
+			],
+			"comments/commentThread/context": [
+				{
+					"command": "changeline.pr.startReview",
+					"when": "commentController == changeline.pr && commentThreadIsEmpty",
+					"group": "inline@1"
+				},
+				{
+					"command": "changeline.pr.addComment",
+					"when": "commentController == changeline.pr",
+					"group": "inline@2"
+				}
+			],
+			"comments/commentThread/title": [
+				{
+					"command": "changeline.pr.resolveThread",
+					"when": "commentController == changeline.pr && commentThread == changeline-unresolved",
+					"group": "inline@1"
+				},
+				{
+					"command": "changeline.pr.unresolveThread",
+					"when": "commentController == changeline.pr && commentThread == changeline-resolved",
+					"group": "inline@1"
 				}
 			],
 			"editor/title": [

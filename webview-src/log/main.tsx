@@ -285,6 +285,7 @@ function App() {
 	const index = useMemo(() => new Map(commits.map((c, i) => [c.hash, i])), [commits]);
 
 	const select = (hashes: string[], list = commits) => {
+		pendingSelect.current = undefined;
 		setSelected(hashes);
 		const sel = hashes.map((h) => list.find((c) => c.hash === h)).filter(Boolean) as CommitInfo[];
 		sel.sort((a, b) => list.indexOf(a) - list.indexOf(b));

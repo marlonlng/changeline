@@ -352,6 +352,7 @@ test('log: graph, labels, details, merge parents, text filter, highlight, collap
 	await v.waitFor(`[...document.querySelectorAll('.jg-menu .item')].some((e) => e.textContent.trim().startsWith('✓') && e.textContent.includes('IntelliSort'))`, 'IntelliSort checked');
 	await v.clickText('.jg-menu .item', 'IntelliSort');
 	await repo().runOp(['tag', '-d', 'ui-tag']);
+	await v.waitFor(`!document.querySelector('.ref-label.tag[title="Tag ui-tag"]')`, 'tag gone after the refresh');
 
 	await v.clickText('.branches-pane .jg-row .name', 'feature');
 	const featureTip = (await repo().revParse('feature'))!;
@@ -700,7 +701,11 @@ test('pull requests panel (GitLab API mock): list, state and text filters, detai
 		await v.waitFor(`document.querySelector('.pr-details')?.textContent.includes('Add RateLimiter service')`, 'commits tab');
 		await v.clickText('.tabs .tab', 'Files');
 		await v.waitFor(`document.querySelector('.pr-details')?.textContent.includes('RateLimiter.php')`, 'files tab');
+		await v.click('.jg-file-tree .file-check');
+		await v.waitFor(`document.querySelector('.jg-file-tree .file-check')?.checked && document.querySelector('.viewed-count')?.textContent.startsWith('1 of 1')`, 'file marked as viewed');
 		await v.clickText('.tabs .tab', 'Overview');
+		assert.ok((await v.count('button[title="Edit Labels"]')) === 1 && (await v.count('button[title="Edit Reviewers"]')) === 1 && (await v.count('button[title="Edit Assignees"]')) === 1, 'metadata can be edited');
+		assert.equal(await v.count('button[title="Edit Title"]'), 1);
 
 		await v.type('.composer textarea', 'Looks good to me');
 		await v.clickText('.composer-buttons .jg-btn', 'Comment');

@@ -261,5 +261,9 @@
 	"config.diff.highlighting.lines": "Zeilen hervorheben",
 	"config.diff.highlighting.split": "Geteilte Änderungen hervorheben",
 	"config.diff.highlighting.chars": "Zeichen hervorheben",
-	"config.diff.highlighting.none": "Nicht hervorheben"
+	"config.diff.highlighting.none": "Nicht hervorheben",
+	"command.pr.addComment": "Einzelnen Kommentar hinzufügen",
+	"command.pr.startReview": "Review starten",
+	"command.pr.resolveThread": "Auflösen",
+	"command.pr.unresolveThread": "Wieder öffnen"
 }

@@ -212,6 +212,16 @@ function App() {
 	const onBodyClick = (e: MouseEvent) => {
 		const entry = e.target as HTMLElement;
 		if (data?.review) {
+			const resolve = entry.closest('[data-resolve]') as HTMLElement | null;
+			if (resolve) {
+				void act('resolveThread', { thread: resolve.dataset.resolve, resolved: resolve.dataset.resolved === '1' });
+				return;
+			}
+			const suggest = entry.closest('[data-suggest]') as HTMLElement | null;
+			if (suggest) {
+				void act('applySuggestion', { id: suggest.dataset.suggest });
+				return;
+			}
 			const reply = entry.closest('[data-reply]') as HTMLElement | null;
 			if (reply) {
 				setComposer({ line: Number(reply.dataset.rline), side: reply.dataset.rside as 'LEFT' | 'RIGHT', inReplyTo: reply.dataset.reply, text: '' });
@@ -410,7 +420,7 @@ function App() {
 								onKeyDown={(e) => {
 									if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && composer.text.trim()) {
 										e.preventDefault();
-										void act('addComment', { line: composer.line, side: composer.side, body: composer.text, inReplyTo: composer.inReplyTo }).then(() => setComposer(null));
+										void act('addComment', { line: composer.line, side: composer.side, body: composer.text, inReplyTo: composer.inReplyTo, mode: !composer.inReplyTo && data.review!.pending ? 'review' : 'single' }).then(() => setComposer(null));
 									} else if (e.key === 'Escape') {
 										setComposer(null);
 									}
@@ -420,18 +430,28 @@ function App() {
 								<button class="jg-btn" onClick={() => setComposer(null)}>
 									{t('Cancel')}
 								</button>
+								{!composer.inReplyTo && (
+									<button
+										class={`jg-btn${data.review.pending ? ' primary' : ''}`}
+										disabled={busy || !composer.text.trim()}
+										onClick={() => act('addComment', { line: composer.line, side: composer.side, body: composer.text, mode: 'review' }).then(() => setComposer(null))}
+									>
+										{data.review.pending ? t('Add Review Comment') : t('Start Review')}
+									</button>
+								)}
 								<button
-									class="jg-btn primary"
+									class={`jg-btn${composer.inReplyTo || !data.review.pending ? ' primary' : ''}`}
 									disabled={busy || !composer.text.trim()}
-									onClick={() => act('addComment', { line: composer.line, side: composer.side, body: composer.text, inReplyTo: composer.inReplyTo }).then(() => setComposer(null))}
+									onClick={() => act('addComment', { line: composer.line, side: composer.side, body: composer.text, inReplyTo: composer.inReplyTo, mode: 'single' }).then(() => setComposer(null))}
 								>
-									{composer.inReplyTo ? t('Reply') : t('Add Comment')}
+									{composer.inReplyTo ? t('Reply') : t('Add Single Comment')}
 								</button>
 							</div>
 						</div>
 					) : (
 						<span class="jg-muted">
-							<Icon name="comment-discussion" /> {data.review.title} · {plural(data.review.comments.length, '{0} comment in this file', '{0} comments in this file')} · {t('click a line number to comment')}
+							<Icon name="comment-discussion" /> {data.review.title} · {plural(data.review.comments.length, '{0} comment in this file', '{0} comments in this file')}
+							{data.review.pending ? ` · ${plural(data.review.pending, '{0} pending review comment', '{0} pending review comments')}` : ''} · {t('click a line number to comment')}
 						</span>
 					)}
 				</div>

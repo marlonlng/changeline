@@ -318,6 +318,14 @@ test('merge requests: list, fetch the head and add a review line comment (GitLab
 			if (p === '/merge_requests/1/approvals') {
 				return json({ approved_by: [] });
 			}
+			if (p === '/merge_requests/1/approve' && req.method === 'POST') {
+				posted.push({ approve: true });
+				return json({});
+			}
+			if (p === '/merge_requests/1/discussions/disc1' && req.method === 'PUT') {
+				posted.push({ resolve: JSON.parse(body) });
+				return json({});
+			}
 			res.writeHead(404);
 			res.end('{}');
 		});
@@ -349,6 +357,17 @@ test('merge requests: list, fetch the head and add a review line comment (GitLab
 		assert.equal(posted[0].position.head_sha, head);
 		await t.review!.submit({ line: 3, side: 'RIGHT', body: 'Reply', inReplyTo: t.review!.comments[0].thread });
 		assert.deepEqual(posted[1], { reply: true, body: 'Reply' });
+
+		const pendingComments = await t.review!.submit({ line: 2, side: 'RIGHT', body: 'Pending one' }, 'review');
+		assert.equal(posted.length, 2, 'a review comment waits until the review is submitted');
+		assert.equal(t.review!.pending(), 1);
+		assert.ok(pendingComments.some((c) => c.pending && c.body === 'Pending one'));
+		await api._test.pullRequests.submitReview(1, 'approve', '');
+		assert.equal(posted[2].body, 'Pending one');
+		assert.deepEqual(posted[3], { approve: true });
+		assert.equal(t.review!.pending(), 0, 'submitted reviews leave nothing pending');
+		await t.review!.resolve!('d:disc1', true);
+		assert.deepEqual(posted[4], { resolve: { resolved: true } });
 	} finally {
 		server.close();
 		await repo.removeRemote('origin').catch(() => undefined);
@@ -361,6 +380,45 @@ test('merge requests: list, fetch the head and add a review line comment (GitLab
 	}
 });
 
+
+test('review comments in the editor: threads, review comment, reply, resolve', async () => {
+	const { PrEditorComments } = await import('../../views/prEditorComments');
+	const repo = mainRepo();
+	const calls: string[] = [];
+	let pending: { body: string; line: number }[] = [];
+	const editor = new PrEditorComments();
+	const details = {
+		number: 5, title: 'Editor review', state: 'open', draft: false, author: { login: 'a' }, createdAt: '', updatedAt: '', url: '', headRef: 'x', headSha: 'h', baseRef: 'main', labels: [],
+		body: '', baseSha: 'b', reviewers: [], assignees: [], commits: [], files: [{ path: 'b.txt', status: 'M', additions: 1, deletions: 0 }],
+		timeline: [
+			{ id: '1', kind: 'reviewComment', author: { login: 'lea' }, createdAt: '2026-01-01T00:00:00Z', body: 'First', path: 'b.txt', line: 1, side: 'RIGHT', thread: 't1', resolved: false },
+			{ id: '2', kind: 'reviewComment', author: { login: 'max' }, createdAt: '2026-01-01T01:00:00Z', body: 'Answer', path: 'b.txt', line: 1, side: 'RIGHT', thread: 't1', inReplyTo: 't1', resolved: false },
+			{ id: '3', kind: 'reviewComment', author: { login: 'lea' }, createdAt: '2026-01-01T00:00:00Z', body: 'Old side', path: 'b.txt', line: 1, side: 'LEFT', thread: 't2' },
+		],
+	} as any;
+	const provider = {
+		lineComment: async (_n: number, p: { body: string; inReplyTo?: string }) => void calls.push(`comment:${p.body}:${p.inReplyTo ?? ''}`),
+		resolveThread: async (_n: number, thread: string, resolved: boolean) => void calls.push(`resolve:${thread}:${resolved}`),
+	} as any;
+	const review = { n: 5, repo, details, provider, pending: () => pending as any, addPending: async (c: any) => void (pending = [...pending, c]), reload: async () => editor.show(review) };
+	try {
+		editor.show(review);
+		const threads = (editor as any).threads as vscode.CommentThread[];
+		assert.equal(threads.length, 1, 'one thread on the new side');
+		assert.equal(threads[0].comments.length, 2);
+		assert.equal(threads[0].contextValue, 'changeline-unresolved');
+		await editor.submit({ thread: threads[0], text: 'Reply here' }, 'single');
+		assert.deepEqual(calls, ['comment:Reply here:t1']);
+		const fresh = vscode.comments.createCommentController('changeline.e2e', 'e2e').createCommentThread(vscode.Uri.file(repo.absolutePath('b.txt')), new vscode.Range(0, 0, 0, 0), []);
+		await editor.submit({ thread: fresh, text: 'Later' }, 'review');
+		assert.deepEqual(pending.map((p) => [p.body, p.line]), [['Later', 1]], 'a review comment waits in the pending review');
+		assert.equal(((editor as any).threads as vscode.CommentThread[]).filter((t) => t.contextValue === 'changeline-pending').length, 1);
+		await editor.resolve(((editor as any).threads as vscode.CommentThread[])[0], true);
+		assert.equal(calls.at(-1), 'resolve:t1:true');
+	} finally {
+		editor.dispose();
+	}
+});
 
 type Answer = (message: string, items: string[]) => string | undefined;
 

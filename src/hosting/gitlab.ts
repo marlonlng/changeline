@@ -1,4 +1,4 @@
-import { CreatePrParams, Fetcher, HostingProvider, LineCommentParams, PrDetails, PrFile, PrReviewer, PrState, PrTimelineItem, PrUser, PullRequest, request, unlessForbidden } from './types';
+import { CreatePrParams, Fetcher, HostingProvider, LineCommentParams, PrDetails, PrFile, PrReviewer, PrState, PrTimelineItem, PrUpdate, PrUser, PullRequest, request, ReviewVerdict, unlessForbidden } from './types';
 
 
 function user(u: any): PrUser {
@@ -93,6 +93,7 @@ export class GitLabProvider implements HostingProvider {
 					side: pos.position.new_line ? ('RIGHT' as const) : ('LEFT' as const),
 					inReplyTo: pos.first !== n.id ? `d:${pos.discussionId}` : undefined,
 					thread: `d:${pos.discussionId}`,
+					resolved: pos.resolvable ? !!pos.resolved : undefined,
 				};
 			}
 			return { id: String(n.id), kind: n.system ? ('event' as const) : ('comment' as const), author: user(n.author), createdAt: n.created_at, body: n.body };
@@ -115,6 +116,7 @@ export class GitLabProvider implements HostingProvider {
 			baseSha: m.diff_refs?.base_sha ?? '',
 			mergeable: m.merge_status ? m.merge_status === 'can_be_merged' : undefined,
 			reviewers,
+			assignees: (m.assignees ?? (m.assignee ? [m.assignee] : [])).map(user),
 			timeline,
 			commits: commits.map((c: any) => ({ sha: c.id, message: c.message, author: c.author_name, date: c.created_at })),
 			files,
@@ -183,6 +185,47 @@ export class GitLabProvider implements HostingProvider {
 				...(p.side === 'RIGHT' ? { new_line: p.line } : { old_line: p.line }),
 			},
 		});
+	}
+
+	async submitReview(n: number, verdict: ReviewVerdict, body: string, comments: LineCommentParams[]): Promise<void> {
+		for (const c of comments) {
+			await this.lineComment(n, c);
+		}
+		await this.review(n, verdict, body);
+	}
+
+	private async userIds(names: string[]): Promise<number[]> {
+		const found = await Promise.all(names.map((u) => this.call<any[]>(`/users?username=${encodeURIComponent(u)}`)));
+		return found.map((list) => list[0]?.id).filter((id): id is number => typeof id === 'number');
+	}
+
+	async update(n: number, patch: PrUpdate): Promise<void> {
+		await this.call(`${this.base}/merge_requests/${n}`, 'PUT', {
+			...(patch.title !== undefined ? { title: patch.title } : {}),
+			...(patch.body !== undefined ? { description: patch.body } : {}),
+			...(patch.labels ? { labels: patch.labels.join(',') } : {}),
+			...(patch.assignees ? { assignee_ids: await this.userIds(patch.assignees) } : {}),
+			...(patch.reviewers ? { reviewer_ids: await this.userIds(patch.reviewers) } : {}),
+		});
+	}
+
+	async markReady(n: number, title: string): Promise<void> {
+		await this.call(`${this.base}/merge_requests/${n}`, 'PUT', { title: title.replace(/^\s*(draft:|\[draft\]|\(draft\)|wip:)\s*/i, '') });
+	}
+
+	async resolveThread(n: number, thread: string, resolved: boolean): Promise<void> {
+		await this.call(`${this.base}/merge_requests/${n}/discussions/${encodeURIComponent(thread.replace(/^d:/, ''))}`, 'PUT', { resolved });
+	}
+
+	async setViewed(): Promise<boolean> {
+		return false;
+	}
+
+	async candidates(kind: 'users' | 'labels'): Promise<string[]> {
+		if (kind === 'labels') {
+			return (await this.call<any[]>(`${this.base}/labels?per_page=100`)).map((l) => l.name);
+		}
+		return (await this.call<any[]>(`${this.base}/members/all?per_page=100`)).map((u) => u.username);
 	}
 
 	headRefSpec(n: number): string {

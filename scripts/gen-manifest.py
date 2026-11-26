@@ -183,12 +183,16 @@ cmd('changeline.copyText', 'Copy')
 cmd('changeline.openRevisionFile', 'Open Local File')
 cmd('changeline.annotate.showDiff', 'Show Diff of Annotated Commit')
 cmd('changeline.annotate.previous', 'Annotate Previous Revision')
+cmd('changeline.pr.addComment', 'Add Single Comment')
+cmd('changeline.pr.startReview', 'Start Review')
+cmd('changeline.pr.resolveThread', 'Resolve', 'check')
+cmd('changeline.pr.unresolveThread', 'Unresolve', 'discard')
 cmd('changeline.lineStatus.rollback', 'Rollback Lines', 'discard')
 cmd('changeline.lineStatus.showDiff', 'Show Diff', 'diff')
 cmd('changeline.lineStatus.copy', 'Copy', 'copy')
 cmd('changeline.lineStatus.moveToChangelist', 'Move to Another Changelist...', 'arrow-swap')
 
-hidden_prefix = ('changeline.changes.', 'changeline.shelf.', 'changeline.stash.', 'changeline.log.', 'changeline.logFile.', 'changeline.logBranch.', 'changeline.lineStatus.')
+hidden_prefix = ('changeline.changes.', 'changeline.shelf.', 'changeline.stash.', 'changeline.log.', 'changeline.logFile.', 'changeline.logBranch.', 'changeline.lineStatus.', 'changeline.pr.')
 palette_visible = {'changeline.changes.refresh', 'changeline.changes.newChangelist', 'changeline.changes.toggleStagingArea', 'changeline.changes.toggleIgnored', 'changeline.changes.rollback', 'changeline.changes.createPatch', 'changeline.changes.groupByDirectory', 'changeline.changes.groupByNone', 'changeline.changes.includeAll', 'changeline.changes.excludeAll', 'changeline.shelf.importPatch', 'changeline.stash.clear'}
 always_hidden = {'changeline.changes.open', 'changeline.copyText', 'changeline.openRevisionFile', 'changeline.annotate.showDiff', 'changeline.annotate.previous'}
 palette = []
@@ -385,6 +389,15 @@ menus['scm/change/title'] = [
     O(command='changeline.lineStatus.copy', when=LS, group='navigation@2'),
     O(command='changeline.lineStatus.showDiff', when=LS, group='navigation@3'),
     O(command='changeline.lineStatus.rollback', when=LS, group='navigation@4'),
+]
+PR = "commentController == changeline.pr"
+menus['comments/commentThread/context'] = [
+    O(command='changeline.pr.startReview', when=f'{PR} && commentThreadIsEmpty', group='inline@1'),
+    O(command='changeline.pr.addComment', when=PR, group='inline@2'),
+]
+menus['comments/commentThread/title'] = [
+    O(command='changeline.pr.resolveThread', when=f"{PR} && commentThread == changeline-unresolved", group='inline@1'),
+    O(command='changeline.pr.unresolveThread', when=f"{PR} && commentThread == changeline-resolved", group='inline@1'),
 ]
 menus['editor/title'] = [
     O(command='changeline.annotate.close', when='changeline.annotateActive', group='navigation@99'),

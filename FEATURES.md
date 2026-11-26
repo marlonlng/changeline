@@ -98,8 +98,11 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | --- | --- | --- |
 | Pull / merge request list and details (description, reviewers, checks, timeline, commits, files) | Panel *Pull Requests* | M, L, E, V, S 10, H |
 | Checkout, merge (merge / squash / rebase), close / reopen | PR details | M |
-| Review: approve, request changes, comment | PR details | M, V (comment, approve) |
-| Review comments in the diff, line comments and replies | Diff viewer of PR files | M, E, H |
+| Review: approve, request changes, comment; pending review with Start Review / Add Review Comment, Submit Review, Discard | PR details, diff viewer | M, E (pending review and submit), V (comment, approve) |
+| Review comments in the diff, line comments and replies, Resolve / Unresolve threads (resolved threads collapsed), Apply Suggestion | Diff viewer of PR files | M, E, H |
+| Edit title, description, reviewers, assignees and labels; Ready for Review | PR details | M, V |
+| Viewed checkbox per changed file | Files tab | M, V |
+| Review comments in the editor while the branch of the request is checked out: reply, Add Single Comment, Start Review, Resolve | Comments in the editor | E |
 | Create pull request | Command, PR toolbar | M |
 | Share Project on GitHub, Create Gist, Sync Fork, Open in Browser | Commands | M |
 | GitHub Enterprise, self-managed GitLab | Settings `changeline.github.enterpriseHosts`, `changeline.gitlab.hosts` | M |
