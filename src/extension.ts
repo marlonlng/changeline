@@ -8,6 +8,7 @@ import { registerBranchCommands } from './commands/branches';
 import { registerChangesCommands } from './commands/changes';
 import { commandDialogOverlay, makeRegistrar } from './commands/common';
 import { registerFileCommands } from './commands/files';
+import { registerLineStatusCommands } from './commands/lineStatus';
 import { registerHistoryCommands } from './commands/history';
 import { registerRemoteCommands } from './commands/remote';
 import { registerStashShelfCommands } from './commands/stashShelf';
@@ -138,6 +139,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Change
 	registerStashShelfCommands(ctx, stashView, shelfView);
 	registerHistoryCommands(ctx, logView, commit);
 	registerFileCommands(ctx, changesView);
+	registerLineStatusCommands(ctx, scm);
 	registerAnnotateCommands(ctx, blame);
 	registerWorktreeCommands(ctx);
 	registerExtraCommands(ctx);

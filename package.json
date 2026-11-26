@@ -1040,6 +1040,30 @@
 				"command": "changeline.annotate.previous",
 				"title": "%command.annotate.previous%",
 				"category": "Changeline"
+			},
+			{
+				"command": "changeline.lineStatus.rollback",
+				"title": "%command.lineStatus.rollback%",
+				"category": "Changeline",
+				"icon": "$(discard)"
+			},
+			{
+				"command": "changeline.lineStatus.showDiff",
+				"title": "%command.lineStatus.showDiff%",
+				"category": "Changeline",
+				"icon": "$(diff)"
+			},
+			{
+				"command": "changeline.lineStatus.copy",
+				"title": "%command.lineStatus.copy%",
+				"category": "Changeline",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "changeline.lineStatus.moveToChangelist",
+				"title": "%command.lineStatus.moveToChangelist%",
+				"category": "Changeline",
+				"icon": "$(arrow-swap)"
 			}
 		],
 		"menus": {
@@ -1406,6 +1430,22 @@
 				},
 				{
 					"command": "changeline.annotate.previous",
+					"when": "false"
+				},
+				{
+					"command": "changeline.lineStatus.rollback",
+					"when": "false"
+				},
+				{
+					"command": "changeline.lineStatus.showDiff",
+					"when": "false"
+				},
+				{
+					"command": "changeline.lineStatus.copy",
+					"when": "false"
+				},
+				{
+					"command": "changeline.lineStatus.moveToChangelist",
 					"when": "false"
 				},
 				{
@@ -2253,6 +2293,28 @@
 					"command": "changeline.annotate.close",
 					"when": "changeline.annotateActive",
 					"group": "navigation"
+				}
+			],
+			"scm/change/title": [
+				{
+					"command": "changeline.lineStatus.moveToChangelist",
+					"when": "originalResourceScheme == changeline && !changeline.stagingArea",
+					"group": "navigation@1"
+				},
+				{
+					"command": "changeline.lineStatus.copy",
+					"when": "originalResourceScheme == changeline",
+					"group": "navigation@2"
+				},
+				{
+					"command": "changeline.lineStatus.showDiff",
+					"when": "originalResourceScheme == changeline",
+					"group": "navigation@3"
+				},
+				{
+					"command": "changeline.lineStatus.rollback",
+					"when": "originalResourceScheme == changeline",
+					"group": "navigation@4"
 				}
 			],
 			"editor/title": [

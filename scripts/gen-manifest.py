@@ -183,8 +183,12 @@ cmd('changeline.copyText', 'Copy')
 cmd('changeline.openRevisionFile', 'Open Local File')
 cmd('changeline.annotate.showDiff', 'Show Diff of Annotated Commit')
 cmd('changeline.annotate.previous', 'Annotate Previous Revision')
+cmd('changeline.lineStatus.rollback', 'Rollback Lines', 'discard')
+cmd('changeline.lineStatus.showDiff', 'Show Diff', 'diff')
+cmd('changeline.lineStatus.copy', 'Copy', 'copy')
+cmd('changeline.lineStatus.moveToChangelist', 'Move to Another Changelist...', 'arrow-swap')
 
-hidden_prefix = ('changeline.changes.', 'changeline.shelf.', 'changeline.stash.', 'changeline.log.', 'changeline.logFile.', 'changeline.logBranch.')
+hidden_prefix = ('changeline.changes.', 'changeline.shelf.', 'changeline.stash.', 'changeline.log.', 'changeline.logFile.', 'changeline.logBranch.', 'changeline.lineStatus.')
 palette_visible = {'changeline.changes.refresh', 'changeline.changes.newChangelist', 'changeline.changes.toggleStagingArea', 'changeline.changes.toggleIgnored', 'changeline.changes.rollback', 'changeline.changes.createPatch', 'changeline.changes.groupByDirectory', 'changeline.changes.groupByNone', 'changeline.changes.includeAll', 'changeline.changes.excludeAll', 'changeline.shelf.importPatch', 'changeline.stash.clear'}
 always_hidden = {'changeline.changes.open', 'changeline.copyText', 'changeline.openRevisionFile', 'changeline.annotate.showDiff', 'changeline.annotate.previous'}
 palette = []
@@ -374,6 +378,13 @@ menus['editor/title/context'] = [O(submenu='changeline.editorGit', when='changel
 menus['editor/lineNumber/context'] = [
     O(command='changeline.annotate', when='changeline.hasRepository && !changeline.annotateActive', group='navigation'),
     O(command='changeline.annotate.close', when='changeline.annotateActive', group='navigation'),
+]
+LS = "originalResourceScheme == changeline"
+menus['scm/change/title'] = [
+    O(command='changeline.lineStatus.moveToChangelist', when=f'{LS} && !changeline.stagingArea', group='navigation@1'),
+    O(command='changeline.lineStatus.copy', when=LS, group='navigation@2'),
+    O(command='changeline.lineStatus.showDiff', when=LS, group='navigation@3'),
+    O(command='changeline.lineStatus.rollback', when=LS, group='navigation@4'),
 ]
 menus['editor/title'] = [
     O(command='changeline.annotate.close', when='changeline.annotateActive', group='navigation@99'),

@@ -11,6 +11,7 @@ import type { ChangeNode, ChangesView, FileNode } from '../views/changesView';
 import { stageFiles, unstageFiles } from '../views/changesView';
 import type { CommitMessageView } from '../views/commitMessageView';
 import { showDialog } from '../webviews/dialogPanel';
+import { newChangelistDialog, pickChangelist } from './changelistPicker';
 import { CommandContext, confirm, savePatch } from './common';
 
 /** Opens the diff for a file of the Local Changes tree, navigable through all files of its group. */
@@ -89,47 +90,10 @@ export async function rollbackDialog(view: ChangesView, files: FileNode[]): Prom
 }
 
 export async function moveToChangelist(files: FileNode[]): Promise<void> {
-	const cl = services().changelists;
-	const items: (vscode.QuickPickItem & { id?: string })[] = [
-		...cl.all.map((l) => ({ label: l.name, description: l.id === cl.active.id ? 'active' : undefined, id: l.id })),
-		{ label: '', kind: vscode.QuickPickItemKind.Separator },
-		{ label: vscode.l10n.t('$(add) New Changelist...'), id: '__new' },
-	];
-	const pick = await vscode.window.showQuickPick(items, { title: vscode.l10n.t('Move {0} to Another Changelist', plural(files.length, '{0} file', '{0} files')) });
-	if (!pick?.id) {
-		return;
+	const id = await pickChangelist(vscode.l10n.t('Move {0} to Another Changelist', plural(files.length, '{0} file', '{0} files')));
+	if (id) {
+		services().changelists.move(files.filter((f) => f.group === 'changelist').map((f) => f.abs), id);
 	}
-	let id = pick.id;
-	if (id === '__new') {
-		const list = await newChangelistDialog();
-		if (!list) {
-			return;
-		}
-		id = list;
-	}
-	cl.move(files.filter((f) => f.group === 'changelist').map((f) => f.abs), id);
-}
-
-async function newChangelistDialog(): Promise<string | undefined> {
-	const cl = services().changelists;
-	const result = await showDialog(
-		{
-			title: vscode.l10n.t('New Changelist'),
-			fields: [
-				{ id: 'name', type: 'text', label: vscode.l10n.t('Name:'), required: true, focus: true },
-				{ id: 'comment', type: 'textarea', label: vscode.l10n.t('Comment:'), rows: 4 },
-				{ id: 'active', type: 'checkbox', label: vscode.l10n.t('Set active'), value: false },
-			],
-			okLabel: 'OK',
-			width: 520,
-			liveValidation: true,
-		},
-		(v) => (cl.findByName(String(v.name ?? '').trim()) ? { name: vscode.l10n.t('A changelist with this name already exists') } : {}),
-	);
-	if (!result) {
-		return undefined;
-	}
-	return cl.create(String(result.values.name).trim(), String(result.values.comment ?? '').trim() || undefined, result.values.active === true).id;
 }
 
 export async function shelveDialog(files: { repo: Repository; change: import('../shared/types').FileChange }[], defaultName: string): Promise<void> {

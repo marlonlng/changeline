@@ -758,6 +758,54 @@ test('shelve silently, staging area mode, line status markers, console', async (
 	}
 });
 
+test('change popup in the editor gutter: copy, move to another changelist, rollback lines', async () => {
+	const repo = mainRepo();
+	const cl = api._test.services().changelists;
+	await setting('lineStatus.enabled', 'on');
+	try {
+		await waitFor(() => api._test.scm.count === api._test.services().repos.repositories.length, 'source controls');
+		await commitFile('gutter.txt', '1\n2\n3\n4\n5\n6\n7\n', 'add gutter');
+		const abs = repo.absolutePath('gutter.txt');
+		fs.writeFileSync(abs, '1\nX\n3\n4\n5\n6\n7\nY\n');
+		await repo.refresh();
+		const uri = vscode.Uri.file(abs);
+		const doc = await vscode.workspace.openTextDocument(uri);
+		await vscode.window.showTextDocument(doc);
+		const changes = [
+			{ originalStartLineNumber: 2, originalEndLineNumber: 2, modifiedStartLineNumber: 2, modifiedEndLineNumber: 2 },
+			{ originalStartLineNumber: 7, originalEndLineNumber: 0, modifiedStartLineNumber: 8, modifiedEndLineNumber: 8 },
+		];
+
+		await vscode.env.clipboard.writeText('');
+		await vscode.commands.executeCommand('changeline.lineStatus.copy', uri, changes, 0);
+		assert.equal(await vscode.env.clipboard.readText(), '2\n');
+
+		const list = cl.create('Gutter list');
+		const { chunkKey, diffLines, splitLines } = await import('../../shared/diff');
+		const oldLines = splitLines('1\n2\n3\n4\n5\n6\n7\n');
+		const newLines = splitLines(doc.getText());
+		const keys = diffLines(oldLines, newLines).map((c) => chunkKey(c, oldLines, newLines));
+		const restore = stubWindow({ quickPick: (items) => items.find((i: { id?: string }) => i.id === list.id) });
+		try {
+			await vscode.commands.executeCommand('changeline.lineStatus.moveToChangelist', uri, changes, 1);
+		} finally {
+			restore();
+		}
+		assert.equal(cl.chunkListOf(abs, keys[1]), list.id, 'the added line went to the other changelist');
+		assert.notEqual(cl.chunkListOf(abs, keys[0]), list.id, 'the first change stayed');
+
+		await vscode.commands.executeCommand('changeline.lineStatus.rollback', uri, changes, 0);
+		assert.equal(doc.getText(), '1\n2\n3\n4\n5\n6\n7\nY\n', 'only the first change rolled back');
+		assert.ok(doc.isDirty, 'rollback edits the document like JetBrains, without saving');
+		await doc.save();
+		await repo.restore(['gutter.txt']);
+		cl.remove(list.id);
+	} finally {
+		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+		await setting('lineStatus.enabled', undefined);
+	}
+});
+
 test('diff viewer: jump to source (F4) and open in the VS Code diff editor', async () => {
 	const repo = mainRepo();
 	const abs = await changeOnly('b.txt', read('b.txt') + 'jump here\n');

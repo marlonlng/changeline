@@ -246,5 +246,9 @@
 	"color.renamedForeground": "Umbenannte / verschobene Dateien.",
 	"color.unversionedForeground": "Unversionierte Dateien.",
 	"color.conflictForeground": "Dateien mit Merge-Konflikten.",
-	"color.ignoredForeground": "Ignorierte Dateien."
+	"color.ignoredForeground": "Ignorierte Dateien.",
+	"command.lineStatus.rollback": "Zeilen-Rollback",
+	"command.lineStatus.showDiff": "Diff anzeigen",
+	"command.lineStatus.copy": "Kopieren",
+	"command.lineStatus.moveToChangelist": "In andere Changelist verschieben…"
 }

@@ -3,6 +3,7 @@ import './style.css';
 import { render } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { chunkKey, DiffChunk, diffLines, diffWords, rangesInLine, splitLines, stripEol, WhitespaceMode } from '../../src/shared/diff';
+import { chunkForLineChange, LineChange } from '../../src/shared/lineChanges';
 import { Checkbox, Icon, IconButton, useKeys } from '../common/components';
 import { basename, dirname } from '../common/format';
 import { highlightLines, languageFor, renderSegments, Segment } from '../common/highlight';
@@ -86,6 +87,7 @@ interface DiffData {
 	review?: { title: string; comments: ReviewComment[] };
 	fileList?: string;
 	chunkLists?: Record<string, string>;
+	focus?: LineChange;
 }
 
 interface Model {
@@ -330,11 +332,15 @@ function App() {
 	const [current, setCurrent] = useState(0);
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());
 	const bodyRef = useRef<HTMLDivElement>(null);
+	const focusRef = useRef<LineChange | undefined>(undefined);
 	const [busy, setBusy] = useState(false);
 	const [composer, setComposer] = useState<{ line: number; side: 'LEFT' | 'RIGHT'; inReplyTo?: string; text: string } | null>(null);
 
 	useEffect(() => {
 		const apply = (d: DiffData) => {
+			if (d.focus) {
+				focusRef.current = d.focus;
+			}
 			setData((prev) => {
 				if (!prev || prev.path !== d.path || prev.fileIndex !== d.fileIndex) {
 					setExpanded(new Set());
@@ -434,6 +440,19 @@ function App() {
 			setTimeout(() => scrollToChunk(Math.min(current, model.chunks.length - 1)), 0);
 		}
 	}, [data?.path, data?.fileIndex]);
+
+	useEffect(() => {
+		const focus = focusRef.current;
+		if (!focus || !model) {
+			return;
+		}
+		focusRef.current = undefined;
+		const i = chunkForLineChange(model.chunks, focus);
+		if (i >= 0) {
+			setCurrent(i);
+			setTimeout(() => scrollToChunk(i), 0);
+		}
+	}, [model]);
 
 	useKeys(
 		(e) => {

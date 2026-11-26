@@ -39,7 +39,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | Shelve, Shelve Silently, Unshelve (merging with local changes), Recently Deleted, Import / Create patch | Shelf view | E (shelve, shelve silently, unshelve), S 07 |
 | Stash, Unstash (pop / reinstate index / as branch), drop, clear | Stash view and dialogs | I, S 08 |
 | Create Patch, Apply Patch (file selection, 3-way) | Commands, VCS popup | I |
-| Line status gutter markers with rollback | Quick diff (on when built-in Git is off) | E (original resource) |
+| Line status gutter markers; change popup with Rollback Lines, Show Diff, Copy, Move to Another Changelist | Quick diff (on when built-in Git is off) with Changeline's actions in the change peek | U, E, V (Show Diff selects the change) |
 
 ## Diff and merge
 

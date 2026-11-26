@@ -673,7 +673,6 @@
 	"Dialog \"{0}\" rejected the answer: {1}": "Dialog „{0}“ hat die Antwort abgelehnt: {1}",
 	"The change no longer exists.": "Die Änderung existiert nicht mehr.",
 	"Move Change to Another Changelist": "Änderung in andere Changelist verschieben",
-	"Name of the new changelist": "Name der neuen Changelist",
 	"Diff: {0}": "Diff: {0}",
 	"Diff": "Diff",
 	"Unknown method {0}": "Unbekannte Methode {0}",
@@ -983,5 +982,7 @@
 	"The oldest commit cannot be squashed or fixed up; there is no commit before it.": "Der älteste Commit lässt sich nicht per Squash oder Fixup zusammenführen; vor ihm gibt es keinen Commit.",
 	"Keys: P E R S F D change the action, Alt+↑/↓ moves the commit.": "Tasten: P E R S F D (Pick, Edit, Reword, Squash, Fixup, Drop) ändern die Aktion, Alt+↑/↓ verschiebt den Commit.",
 	"Start Rebasing (⌘↩)": "Rebase starten (⌘↩)",
-	"Start Rebasing": "Rebase starten"
+	"Start Rebasing": "Rebase starten",
+	"current": "aktuell",
+	"active": "aktiv"
 }

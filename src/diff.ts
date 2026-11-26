@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { EMPTY_REF, refLabel, textUri, toGitUri } from './content';
 import type { Repository } from './git/repository';
+import type { LineChange } from './shared/lineChanges';
 import type { ChangeStatus, FileChange } from './shared/types';
 import { basename, config, shortHash } from './util';
 import type { ChangeGroup } from './views/changesView';
@@ -45,6 +46,7 @@ export interface DiffTarget {
 export interface DiffContext {
 	targets: DiffTarget[];
 	index: number;
+	focus?: LineChange;
 }
 
 export function localChangeTarget(repo: Repository, change: FileChange, group: ChangeGroup): DiffTarget {

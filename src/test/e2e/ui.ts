@@ -125,6 +125,15 @@ test('diff viewer: highlighting, word diff, whitespace, collapse, F7, unified, i
 	await closeAll();
 });
 
+test('diff viewer: Show Diff in the change popup of the editor selects that change', async () => {
+	const uri = vscode.Uri.file(path.join(ws, 'src/code.ts'));
+	const at = (line: number) => ({ originalStartLineNumber: line, originalEndLineNumber: line, modifiedStartLineNumber: line, modifiedEndLineNumber: line });
+	await vscode.commands.executeCommand('changeline.lineStatus.showDiff', uri, [at(21), at(36)], 1);
+	const w = await webview('Diff: code.ts');
+	await w.waitFor(`document.querySelectorAll('.row.ch').length === 2 && document.querySelector('.row.ch.current')?.dataset.chunk === '1'`, 'the change from the popup is selected');
+	await closeAll();
+});
+
 test('diff viewer: next / previous file with Alt+Right / Alt+Left', async () => {
 	fs.writeFileSync(path.join(ws, 'a.txt'), 'one\nTWO\nthree\nfour\nfive\n');
 	fs.writeFileSync(path.join(ws, 'b.txt'), 'bee changed\n');

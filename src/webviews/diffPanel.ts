@@ -1,9 +1,11 @@
 import * as fs from 'fs';
 import * as vscode from 'vscode';
+import { moveChunkToChangelist } from '../commands/changelistPicker';
 import { DiffContext, DiffSide, DiffTarget, openNativeDiff } from '../diff';
 import type { Repository } from '../git/repository';
 import { services } from '../services';
 import { applyChunks, chunkKey, diffLines, isBinary, splitLines, WhitespaceMode } from '../shared/diff';
+import type { LineChange } from '../shared/lineChanges';
 import { basename, config, samePath } from '../util';
 import { RpcHandlers, WebviewPanelBase } from './host';
 
@@ -60,6 +62,7 @@ export async function writeWorkingFile(abs: string, text: string): Promise<void>
 export class DiffPanel extends WebviewPanelBase {
 	private static current?: DiffPanel;
 	private ctx!: DiffContext;
+	private focus?: LineChange;
 	private reloadTimer?: NodeJS.Timeout;
 
 	/** The open diff window, if any. */
@@ -79,6 +82,7 @@ export class DiffPanel extends WebviewPanelBase {
 	private constructor(ctx: DiffContext) {
 		super(services().context.extensionUri, 'changeline.diff', titleOf(ctx), 'diff', null, vscode.ViewColumn.Active, { retainContextWhenHidden: true });
 		this.ctx = ctx;
+		this.focus = ctx.focus;
 		const s = services();
 		this.disposables.push(
 			s.repos.onDidChangeState((repo) => {
@@ -102,6 +106,7 @@ export class DiffPanel extends WebviewPanelBase {
 
 	setContext(ctx: DiffContext): void {
 		this.ctx = ctx;
+		this.focus = ctx.focus;
 		this.panel.title = titleOf(ctx);
 		void this.reload();
 	}
@@ -138,6 +143,8 @@ export class DiffPanel extends WebviewPanelBase {
 	private async data() {
 		const t = this.target;
 		const s = services();
+		const focus = this.focus;
+		this.focus = undefined;
 		const [leftBuf, rightBuf] = await Promise.all([readSide(t.repo, t.left), readSide(t.repo, t.right)]);
 		const binary = (!!leftBuf && isBinary(leftBuf)) || (!!rightBuf && isBinary(rightBuf));
 		const tooLarge = (leftBuf?.length ?? 0) > MAX_SIZE || (rightBuf?.length ?? 0) > MAX_SIZE;
@@ -192,6 +199,7 @@ export class DiffPanel extends WebviewPanelBase {
 			files: this.ctx.targets.map((x) => ({ path: x.path, status: x.status })),
 			settings: this.settings(),
 			review: t.review ? { title: t.review.title, comments: t.review.comments } : undefined,
+			focus,
 		};
 	}
 
@@ -237,30 +245,7 @@ export class DiffPanel extends WebviewPanelBase {
 				const { oldLines, newLines, chunks } = await this.chunks('none');
 				services().changelists.setChunkInclusion(t.repo.absolutePath(t.path), p.key, p.included, chunks.map((c) => chunkKey(c, oldLines, newLines)));
 			},
-			moveChunk: async (p: { key: string }) => {
-				const t = this.target;
-				const cl = services().changelists;
-				const abs = t.repo.absolutePath(t.path);
-				const current = cl.chunkListOf(abs, p.key);
-				const items: (vscode.QuickPickItem & { id?: string })[] = [
-					...cl.all.map((l) => ({ label: l.name, description: l.id === current ? 'current' : l.id === cl.active.id ? 'active' : undefined, id: l.id })),
-					{ label: '', kind: vscode.QuickPickItemKind.Separator },
-					{ label: vscode.l10n.t('$(add) New Changelist...'), id: '__new' },
-				];
-				const pick = await vscode.window.showQuickPick(items, { title: vscode.l10n.t('Move Change to Another Changelist') });
-				if (!pick?.id) {
-					return;
-				}
-				let id = pick.id;
-				if (id === '__new') {
-					const name = await vscode.window.showInputBox({ prompt: vscode.l10n.t('Name of the new changelist'), validateInput: (v) => (cl.findByName(v.trim()) ? vscode.l10n.t('A changelist with this name already exists') : undefined) });
-					if (!name?.trim()) {
-						return;
-					}
-					id = cl.create(name.trim()).id;
-				}
-				cl.moveChunk(abs, p.key, id);
-			},
+			moveChunk: (p: { key: string }) => moveChunkToChangelist(this.target.repo.absolutePath(this.target.path), p.key),
 			includeFile: (p: { included: boolean }) => {
 				services().changelists.setIncluded([this.target.repo.absolutePath(this.target.path)], p.included);
 			},
