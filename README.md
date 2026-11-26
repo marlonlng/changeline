@@ -39,20 +39,23 @@ It talks to the `git` executable directly and works next to (or instead of) VS C
 | Staging area mode | Setting `changeline.commit.useStagingArea` (Staged / Changes / Unversioned, stage and unstage per file or per chunk) |
 | Amend, commit message history (⌘M), Sign-off, Author, Run Git hooks | Commit Message view: *Amend* checkbox, history and options buttons |
 | Commit inspections (subject length, blank line), "Analyze code", "Check TODO" | Inline warnings in the message box, options under the gear button |
+| Commit message completion, issue navigation, right margin | ⌃Space completes changed file names; issue IDs link to the tracker (`changeline.issueNavigation`, `#123` for GitHub / GitLab); *Wrap when typing reaches right margin* |
+| Generate commit message (AI Assistant) | Sparkle button in the Commit Message view, using VS Code's language model API (for example GitHub Copilot) |
 | Commit / Commit and Push… | Buttons in the Commit Message view (⌘↩ / ⌥⌘↩) |
 | Rollback (⌥⌘Z) with "Delete local copies of added files" | *Rollback…* in the tree, editor and explorer menus |
-| Diff viewer: side-by-side / unified, highlight words, ignore whitespace, collapse unchanged, »-revert arrows, change markers in the scrollbar, F7 navigation, file navigation | JetBrains-style diff viewer (setting `changeline.diff.viewer`, VS Code diff editor is one click away) |
-| Git tool window → Log (⌘9) | Panel **Git → Log**: branches pane, filters (text/hash with regex and case, Branch, User, Date, Paths), commit graph with labels, changed files and commit details |
+| Diff viewer: side-by-side with two editors that scroll together and curved bands between the changes, unified, highlight words / lines / split changes / characters, ignore whitespace (and empty lines), collapse unchanged, soft wraps, »-revert arrows, change markers in the scrollbar, commit details for history diffs, F7 navigation, file navigation | JetBrains-style diff viewer (setting `changeline.diff.viewer`, VS Code diff editor is one click away) |
+| Line status markers with the change popup | Editor gutter: *Rollback Lines*, *Show Diff*, *Copy*, *Move to Another Changelist* in the change peek (with the built-in Git support turned off) |
+| Git tool window → Log (⌘9) | Panel **Git → Log**: branches pane, filters (text/hash with regex and case, Branch, User, Date, Paths), commit graph with labels, changed files, commit details and diff preview; view options IntelliSort, Show Long Edges, Compact References View, Show Tag Names |
 | Log context menu | Copy Revision, Create Patch, Cherry-Pick, Checkout Revision, Show Repository at Revision, Compare with Local, Reset Current Branch to Here, Revert, Undo Commit, Edit Commit Message, Fixup, Squash Into, Squash Commits, Drop Commits, Interactively Rebase from Here, Push All up to Here, New Branch, New Tag, Go to Parent/Child, Open in Browser |
 | Changed files context menu in the log | Show Diff, Compare with Local, Edit Source, Open Repository Version, Revert / Cherry-Pick Selected Changes, Show History up to Here, Annotate Revision |
-| Branches popup (status bar widget) | Status bar branch item or *Branches…*: Recent / Local / Remote / Tags, favorites (★), incoming/outgoing markers, all branch actions (Checkout, New Branch from…, Checkout and Rebase onto, Compare with, Show Diff with Working Tree, Rebase onto, Merge into, Pull using Rebase/Merge, Update, Push, Rename, Edit Tracking, Delete with *Restore*) |
+| Branches popup (status bar widget) | Status bar branch item or *Branches…*: Recent / Local / Remote / Tags, favorites (★), incoming/outgoing markers, worktrees, all branch actions (Checkout, Checkout and Update, Checkout in New Worktree, New Branch from…, Checkout and Rebase onto, Compare with, Show Diff with Working Tree, Rebase onto, Merge into, Pull using Rebase/Merge, Update, Push, Rename, Edit Tracking, Delete with *Restore*) |
 | Smart Checkout / Smart Merge | Offered automatically when local changes would be overwritten |
 | Update Project (⌘T) with merge or rebase | *Update Project…*, summary with *View Commits* / *Show Files* |
 | Push dialog (⇧⌘K) | Commits per repository, editable target branch, *New* marker, push tags, run hooks, Force Push (with lease, protected branches), rejected-push handling (Rebase / Merge) |
 | Pull, Fetch, Manage Remotes, Clone, Create Git Repository | Commands of the same name |
 | Merge / Rebase / Reset HEAD / New Tag / Stash / Unstash dialogs | JetBrains-style dialogs |
 | Conflicts dialog (Accept Yours / Accept Theirs / Merge…) | Opens automatically when an operation stops with conflicts |
-| Three-way merge window | Left / Result / Right with »/« and ✕ per change, "Apply Non-Conflicting Changes" (left / all / right), Accept Left/Right, F7 navigation, editable result |
+| Three-way merge window | Left / Result / Right that scroll together with bands to the result, »/« and ✕ per change, "Apply Non-Conflicting Changes" (left / all / right), Accept Left/Right, ignore whitespace, highlight words, F7 navigation, editable result |
 | Interactive rebase dialog | Pick / Edit / Reword / Squash / Fixup / Drop, reordering, message editing for reword and squash groups |
 | Continue / Abort / Skip rebase, merge, cherry-pick | Status bar indicator, Commit Message banner, VCS Operations popup |
 | Shelf (shelve, unshelve with merge, recently deleted, patches) | Shelf view; unshelving merges with local changes (three-way) and opens the merge window on conflicts |
@@ -61,9 +64,10 @@ It talks to the `git` executable directly and works next to (or instead of) VS C
 | VCS Operations popup (⌥\`) | *VCS Operations Popup…* (⌥\`) |
 | Git console | *Show Git Console* (all commands Changeline runs) |
 | File status colors | Local Changes, Shelf and Stash use JetBrains colors; optional for the Explorer (`changeline.decorations.explorer`) |
-| Partial changelists | ⇄ next to a change in the diff viewer moves just that chunk to another changelist |
+| Partial changelists | ⇄ next to a change in the diff viewer or in the change popup moves just that chunk to another changelist; new changes in a file of another changelist go to the active changelist |
+| Restore workspace on branch switching | `changeline.branches.restoreWorkspace` |
 | Synchronous branch control | With several repositories the branches popup works on all of them (`changeline.branches.syncControl`) |
-| GitHub / GitLab pull requests | Panel **Pull Requests**: list, details, review, comments in the diff, merge, checkout; *Create Pull Request…* |
+| GitHub / GitLab pull requests | Panel **Pull Requests**: list, details, review with pending comments (*Start Review*, *Submit Review*), comments in the diff and in the editor, resolve threads, apply suggestions, viewed files, edit title / description / reviewers / assignees / labels, *Ready for Review*, merge, checkout; *Create Pull Request…* |
 | Share Project on GitHub, Create Gist, Sync Fork | Commands of the same name |
 
 ## Keyboard shortcuts
@@ -102,6 +106,9 @@ Changelist mode never touches your real index when committing. Changeline builds
 
 - VS Code has no modal dialogs for extensions. Dialogs started from the Git log or the Commit tool window open as a modal overlay inside that view, dialogs with a single text or choice field (e.g. the reset type) use VS Code's quick input, and the remaining dialogs, or overlays that do not fit into a small view, open as an editor tab. Escape cancels, Enter confirms.
 - The diff viewer is read-only apart from its chunk actions; *Jump to Source* (F4) opens the editable file, *Open in VS Code Diff Editor* edits in place. The merge window's result is editable per change block.
+- VS Code does not let extensions react to clicks on gutter icons, so the include checkboxes for partial commits are in the diff viewer, not in the editor gutter. The change popup of the editor offers Rollback, Show Diff, Copy and Move to Another Changelist.
+- The branches popup is a VS Code quick pick: branch actions open as a second step instead of a submenu, and branches are listed per section instead of as a tree. The branch widget lives in the status bar, not in the main toolbar.
+- The Commit tool window shows Local Changes, Commit Message, Shelf and Stash as views of one sidebar container instead of tabs.
 - Changelists are stored per workspace (`workspaceState`), the shelf in the extension's workspace storage.
 - Local History is an IDE feature, not part of Git, and is not included.
 
