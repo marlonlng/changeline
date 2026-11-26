@@ -985,5 +985,11 @@
 	"Start Rebasing": "Rebase starten",
 	"current": "aktuell",
 	"active": "aktiv",
-	"Use soft wraps": "Soft Wraps verwenden"
+	"Use soft wraps": "Soft Wraps verwenden",
+	"Highlighting": "Hervorhebung",
+	"Highlight lines": "Zeilen hervorheben",
+	"Highlight split changes": "Geteilte Änderungen hervorheben",
+	"Highlight characters": "Zeichen hervorheben",
+	"Do not highlight": "Nicht hervorheben",
+	"Ignore whitespaces and empty lines": "Leerraum und leere Zeilen ignorieren"
 }

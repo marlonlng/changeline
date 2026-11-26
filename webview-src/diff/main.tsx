@@ -2,7 +2,7 @@ import '../common/base.css';
 import './style.css';
 import { render } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { chunkKey, DiffChunk, diffLines, diffWords, rangesInLine, splitLines, stripEol, WhitespaceMode } from '../../src/shared/diff';
+import { chunkKey, DiffChunk, diffLines, diffWords, HighlightMode, rangesInLine, splitChunks, splitLines, stripEol, WhitespaceMode } from '../../src/shared/diff';
 import { chunkForLineChange, LineChange } from '../../src/shared/lineChanges';
 import { Checkbox, Icon, IconButton, useKeys } from '../common/components';
 import { basename, dirname } from '../common/format';
@@ -63,7 +63,7 @@ interface Settings {
 	sideBySide: boolean;
 	softWrap: boolean;
 	collapse: boolean;
-	highlightWords: boolean;
+	highlight: HighlightMode;
 	context: number;
 }
 
@@ -105,13 +105,14 @@ interface Model {
 function buildModel(d: DiffData, s: Settings): Model {
 	const oldLines = splitLines(d.left ?? '');
 	const newLines = splitLines(d.right ?? '');
-	const chunks = diffLines(oldLines, newLines, { whitespace: s.whitespace });
+	const lineChunks = diffLines(oldLines, newLines, { whitespace: s.whitespace });
+	const chunks = s.highlight === 'split' ? splitChunks(lineChunks) : lineChunks;
 	const keys = chunks.map((c) => chunkKey(c, oldLines, newLines));
 	const lang = languageFor(d.path);
 	const hlOld = highlightLines(d.left ?? '', lang, oldLines.length);
 	const hlNew = highlightLines(d.right ?? '', lang, newLines.length);
 	const words: Model['words'] = new Map();
-	if (s.highlightWords) {
+	if (s.highlight === 'words' || s.highlight === 'split' || s.highlight === 'chars') {
 		chunks.forEach((c, i) => {
 			if (c.oldEnd === c.oldStart || c.newEnd === c.newStart || c.oldEnd - c.oldStart + c.newEnd - c.newStart > 400) {
 				return;
@@ -127,7 +128,7 @@ function buildModel(d: DiffData, s: Settings): Model {
 				}
 				return out;
 			};
-			const r = diffWords(oldPart.join('\n'), newPart.join('\n'), s.whitespace !== 'none');
+			const r = diffWords(oldPart.join('\n'), newPart.join('\n'), s.whitespace !== 'none', s.highlight === 'chars');
 			words.set(i, { ...r, oldOffsets: offsets(oldPart), newOffsets: offsets(newPart) });
 		});
 	}
@@ -164,40 +165,41 @@ function lineHtml(m: Model, side: 'old' | 'new', lineIndex: number, chunkIndex?:
 	return html || '&#8203;';
 }
 
-type Block = { type: 'equal'; oldStart: number; newStart: number; count: number } | { type: 'fold'; oldStart: number; newStart: number; count: number } | { type: 'chunk'; index: number };
+type Block = { type: 'equal'; oldStart: number; newStart: number; oldCount: number; newCount: number } | { type: 'fold'; oldStart: number; newStart: number; count: number } | { type: 'chunk'; index: number };
 
 function buildBlocks(m: Model, collapse: boolean, context: number, expanded: Set<number>): Block[] {
 	const blocks: Block[] = [];
 	let oldPos = 0;
 	let newPos = 0;
-	const pushEqual = (count: number, atStart: boolean, atEnd: boolean) => {
-		if (count <= 0) {
+	const pushEqual = (oldCount: number, newCount: number, atStart: boolean, atEnd: boolean) => {
+		if (oldCount <= 0 && newCount <= 0) {
 			return;
 		}
+		const count = oldCount;
 		const head = atStart ? 0 : context;
 		const tail = atEnd ? 0 : context;
-		if (!collapse || count <= head + tail + 2 || expanded.has(oldPos)) {
-			blocks.push({ type: 'equal', oldStart: oldPos, newStart: newPos, count });
+		if (!collapse || oldCount !== newCount || count <= head + tail + 2 || expanded.has(oldPos)) {
+			blocks.push({ type: 'equal', oldStart: oldPos, newStart: newPos, oldCount, newCount });
 		} else {
 			if (head) {
-				blocks.push({ type: 'equal', oldStart: oldPos, newStart: newPos, count: head });
+				blocks.push({ type: 'equal', oldStart: oldPos, newStart: newPos, oldCount: head, newCount: head });
 			}
 			const hidden = count - head - tail;
 			blocks.push({ type: 'fold', oldStart: oldPos, newStart: newPos, count: hidden });
 			if (tail) {
-				blocks.push({ type: 'equal', oldStart: oldPos + head + hidden, newStart: newPos + head + hidden, count: tail });
+				blocks.push({ type: 'equal', oldStart: oldPos + head + hidden, newStart: newPos + head + hidden, oldCount: tail, newCount: tail });
 			}
 		}
-		oldPos += count;
-		newPos += count;
+		oldPos += oldCount;
+		newPos += newCount;
 	};
 	m.chunks.forEach((c, i) => {
-		pushEqual(c.oldStart - oldPos, oldPos === 0, false);
+		pushEqual(c.oldStart - oldPos, c.newStart - newPos, oldPos === 0, false);
 		oldPos = c.oldEnd;
 		newPos = c.newEnd;
 		blocks.push({ type: 'chunk', index: i });
 	});
-	pushEqual(m.oldLines.length - oldPos, oldPos === 0, true);
+	pushEqual(m.oldLines.length - oldPos, m.newLines.length - newPos, oldPos === 0, true);
 	return blocks;
 }
 
@@ -216,16 +218,18 @@ function renderSides(m: Model, blocks: Block[], d: DiffData, s: Settings, curren
 	const threads = buildThreads(d.review?.comments);
 	const caps = d.capabilities;
 	const excluded = new Set(d.excluded);
-	const includeEnabled = caps.include && s.whitespace === 'none';
+	const includeEnabled = caps.include && s.whitespace === 'none' && s.highlight !== 'split';
 	for (const b of blocks) {
 		if (b.type === 'equal') {
-			for (let k = 0; k < b.count; k++) {
-				const o = b.oldStart + k;
-				const n = b.newStart + k;
+			for (let o = b.oldStart; o < b.oldStart + b.oldCount; o++) {
 				left.push(`<div class="line"><span class="ln" data-oline="${o + 1}">${o + 1}</span><span class="code">${lineHtml(m, 'old', o)}</span></div>`);
-				right.push(`<div class="line"><span class="ln" data-line="${n + 1}">${n + 1}</span><span class="code">${lineHtml(m, 'new', n)}</span></div>`);
 				if (threads.size) {
 					left.push(threadHtml(threads, 'LEFT', o + 1, o + 1));
+				}
+			}
+			for (let n = b.newStart; n < b.newStart + b.newCount; n++) {
+				right.push(`<div class="line"><span class="ln" data-line="${n + 1}">${n + 1}</span><span class="code">${lineHtml(m, 'new', n)}</span></div>`);
+				if (threads.size) {
 					right.push(threadHtml(threads, 'RIGHT', n + 1, n + 1));
 				}
 			}
@@ -288,13 +292,14 @@ function renderUnified(m: Model, blocks: Block[], d: DiffData, s: Settings, curr
 	const threads = buildThreads(d.review?.comments);
 	const caps = d.capabilities;
 	const excluded = new Set(d.excluded);
-	const includeEnabled = caps.include && s.whitespace === 'none';
+	const includeEnabled = caps.include && s.whitespace === 'none' && s.highlight !== 'split';
 	for (const b of blocks) {
 		if (b.type === 'equal') {
-			for (let k = 0; k < b.count; k++) {
+			for (let k = 0; k < b.newCount; k++) {
 				const o = b.oldStart + k;
 				const n = b.newStart + k;
-				out.push(`<div class="u-line eq"><span class="ln" data-oline="${o + 1}">${o + 1}</span><span class="ln" data-line="${n + 1}">${n + 1}</span><span class="code">${lineHtml(m, 'new', n)}</span></div>`);
+				const oldNumber = b.oldCount === b.newCount ? `<span class="ln" data-oline="${o + 1}">${o + 1}</span>` : '<span class="ln"></span>';
+				out.push(`<div class="u-line eq">${oldNumber}<span class="ln" data-line="${n + 1}">${n + 1}</span><span class="code">${lineHtml(m, 'new', n)}</span></div>`);
 				if (threads.size) {
 					out.push(threadHtml(threads, 'LEFT', o + 1, o + 1) + threadHtml(threads, 'RIGHT', n + 1, n + 1));
 				}
@@ -386,7 +391,7 @@ function App() {
 	}, []);
 
 	const s = settings ?? data?.settings;
-	const model = useMemo(() => (data && s && !data.binary && !data.tooLarge ? buildModel(data, s) : null), [data, s?.whitespace, s?.highlightWords]);
+	const model = useMemo(() => (data && s && !data.binary && !data.tooLarge ? buildModel(data, s) : null), [data, s?.whitespace, s?.highlight]);
 	const blocks = useMemo(() => (model && s ? buildBlocks(model, s.collapse, s.context, expanded) : []), [model, s?.collapse, s?.context, expanded]);
 	const html = useMemo(() => {
 		if (!model || !data || !s) {
@@ -568,11 +573,11 @@ function App() {
 				void act('moveChunk', { key });
 				return;
 			}
-			void act(action === 'revert' ? 'revertChunk' : action === 'stage' ? 'stageChunk' : 'unstageChunk', { key, whitespace: s!.whitespace });
+			void act(action === 'revert' ? 'revertChunk' : action === 'stage' ? 'stageChunk' : 'unstageChunk', { key, whitespace: s!.whitespace, split: s!.highlight === 'split' });
 			return;
 		}
 		if (entry instanceof HTMLInputElement && entry.classList.contains('inc')) {
-			void act('toggleChunk', { key: entry.dataset.key, included: entry.checked, whitespace: s!.whitespace });
+			void act('toggleChunk', { key: entry.dataset.key, included: entry.checked, whitespace: s!.whitespace, split: s!.highlight === 'split' });
 			return;
 		}
 		const chunk = entry.closest('[data-chunk]') as HTMLElement | null;
@@ -634,8 +639,15 @@ function App() {
 					<option value="none">{t('Do not ignore')}</option>
 					<option value="trim">{t('Trim whitespaces')}</option>
 					<option value="all">{t('Ignore whitespaces')}</option>
+					<option value="emptyLines">{t('Ignore whitespaces and empty lines')}</option>
 				</select>
-				<IconButton icon="whole-word" title={t('Highlight words')} active={s.highlightWords} onClick={() => update({ highlightWords: !s.highlightWords })} />
+				<select title={t('Highlighting')} value={s.highlight} onChange={(e) => update({ highlight: (e.target as HTMLSelectElement).value as HighlightMode })}>
+					<option value="words">{t('Highlight words')}</option>
+					<option value="lines">{t('Highlight lines')}</option>
+					<option value="split">{t('Highlight split changes')}</option>
+					<option value="chars">{t('Highlight characters')}</option>
+					<option value="none">{t('Do not highlight')}</option>
+				</select>
 				<IconButton icon="fold" title={t('Collapse unchanged fragments')} active={s.collapse} onClick={() => update({ collapse: !s.collapse })} />
 				<IconButton icon="word-wrap" title={t('Use soft wraps')} active={s.softWrap} onClick={() => update({ softWrap: !s.softWrap })} />
 				<span class="spacer" />
@@ -678,7 +690,7 @@ function App() {
 			) : null}
 			<div class="diff-scroll" style={{ display: data.binary || data.tooLarge || identical ? 'none' : undefined }} onClick={onBodyClick as any} onDblClick={onBodyDblClick as any}>
 				{s.sideBySide ? (
-					<div class={`diff-body side jg-code${busy ? ' busy' : ''}${data.review ? ' review' : ''}${s.softWrap ? ' wrap' : ''}`} style={{ '--lnw': lnWidth } as any}>
+					<div class={`diff-body side jg-code${s.highlight === 'none' ? ' hl-none' : ''}${busy ? ' busy' : ''}${data.review ? ' review' : ''}${s.softWrap ? ' wrap' : ''}`} style={{ '--lnw': lnWidth } as any}>
 						<div ref={leftRef} class="pane l" tabIndex={0} />
 						<div class="divider">
 							<svg ref={svgRef} class="bands" />
@@ -687,7 +699,7 @@ function App() {
 						<div ref={bodyRef} class="pane r" tabIndex={0} />
 					</div>
 				) : (
-					<div ref={bodyRef} class={`diff-body unified pane jg-code${busy ? ' busy' : ''}${data.review ? ' review' : ''}${s.softWrap ? ' wrap' : ''}`} style={{ '--lnw': lnWidth } as any} tabIndex={0} />
+					<div ref={bodyRef} class={`diff-body unified pane jg-code${s.highlight === 'none' ? ' hl-none' : ''}${busy ? ' busy' : ''}${data.review ? ' review' : ''}${s.softWrap ? ' wrap' : ''}`} style={{ '--lnw': lnWidth } as any} tabIndex={0} />
 				)}
 				<OverviewRuler
 					target={bodyRef}

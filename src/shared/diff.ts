@@ -6,7 +6,9 @@ export interface DiffChunk {
 	newEnd: number;
 }
 
-export type WhitespaceMode = 'none' | 'trim' | 'all';
+export type WhitespaceMode = 'none' | 'trim' | 'all' | 'emptyLines';
+
+export type HighlightMode = 'words' | 'lines' | 'split' | 'chars' | 'none';
 
 export interface DiffOptions {
 	whitespace?: WhitespaceMode;
@@ -57,6 +59,7 @@ export function lineKey(line: string, mode: WhitespaceMode): string {
 		case 'trim':
 			return s.trim() + suffix;
 		case 'all':
+		case 'emptyLines':
 			return s.replace(/\s+/g, '') + suffix;
 		default:
 			return s + suffix;
@@ -84,7 +87,46 @@ export function diffLines(oldLines: readonly string[], newLines: readonly string
 		b[i] = intern(newLines[i]);
 	}
 	const deadline = options.timeoutMs === undefined ? Date.now() + 5000 : Date.now() + options.timeoutMs;
-	return diffInts(a, b, deadline);
+	if (mode !== 'emptyLines') {
+		return diffInts(a, b, deadline);
+	}
+	const oldIndex = nonBlank(oldLines);
+	const newIndex = nonBlank(newLines);
+	const compact = diffInts(Int32Array.from(oldIndex, (i) => a[i]), Int32Array.from(newIndex, (i) => b[i]), deadline);
+	const start = (index: number[], s: number, e: number) => (s < e ? index[s] : s > 0 ? index[s - 1] + 1 : 0);
+	const end = (index: number[], s: number, e: number) => (s < e ? index[e - 1] + 1 : start(index, s, e));
+	return compact.map((c) => ({
+		oldStart: start(oldIndex, c.oldStart, c.oldEnd),
+		oldEnd: end(oldIndex, c.oldStart, c.oldEnd),
+		newStart: start(newIndex, c.newStart, c.newEnd),
+		newEnd: end(newIndex, c.newStart, c.newEnd),
+	}));
+}
+
+function nonBlank(lines: readonly string[]): number[] {
+	const out: number[] = [];
+	lines.forEach((l, i) => {
+		if (l.trim()) {
+			out.push(i);
+		}
+	});
+	return out;
+}
+
+/** JetBrains' "Highlight split changes": a modified block with as many new as old lines becomes one change per line pair. */
+export function splitChunks(chunks: readonly DiffChunk[]): DiffChunk[] {
+	const out: DiffChunk[] = [];
+	for (const c of chunks) {
+		const count = c.oldEnd - c.oldStart;
+		if (count > 1 && count === c.newEnd - c.newStart) {
+			for (let i = 0; i < count; i++) {
+				out.push({ oldStart: c.oldStart + i, oldEnd: c.oldStart + i + 1, newStart: c.newStart + i, newEnd: c.newStart + i + 1 });
+			}
+		} else {
+			out.push(c);
+		}
+	}
+	return out;
 }
 
 export function diffTexts(oldText: string, newText: string, options?: DiffOptions): { oldLines: string[]; newLines: string[]; chunks: DiffChunk[] } {
@@ -281,8 +323,8 @@ export function applyChunks(
 	let oldPos = 0;
 	let newPos = 0;
 	chunks.forEach((chunk, index) => {
-		for (let k = 0; k < chunk.oldStart - oldPos; k++) {
-			out.push(newLines[newPos + k]);
+		for (let k = newPos; k < chunk.newStart; k++) {
+			out.push(newLines[k]);
 		}
 		if (take(chunk, index)) {
 			for (let k = chunk.newStart; k < chunk.newEnd; k++) {
@@ -348,13 +390,28 @@ export function tokenize(text: string): { tokens: string[]; offsets: number[] } 
 	return { tokens, offsets };
 }
 
+/** Single characters as tokens, for JetBrains' "Highlight characters". */
+export function tokenizeChars(text: string): { tokens: string[]; offsets: number[] } {
+	const tokens: string[] = [];
+	const offsets: number[] = [];
+	for (let i = 0; i < text.length; i++) {
+		const crlf = text.charCodeAt(i) === 13 && text.charCodeAt(i + 1) === 10;
+		tokens.push(crlf ? '\r\n' : text[i]);
+		offsets.push(i);
+		if (crlf) {
+			i++;
+		}
+	}
+	return { tokens, offsets };
+}
+
 /**
  * Word level diff for highlighting inside a modified chunk. Returns changed
  * character ranges on both sides.
  */
-export function diffWords(oldText: string, newText: string, ignoreWhitespace = false): { oldRanges: TextRange[]; newRanges: TextRange[] } {
-	const ta = tokenize(oldText);
-	const tb = tokenize(newText);
+export function diffWords(oldText: string, newText: string, ignoreWhitespace = false, chars = false): { oldRanges: TextRange[]; newRanges: TextRange[] } {
+	const ta = chars ? tokenizeChars(oldText) : tokenize(oldText);
+	const tb = chars ? tokenizeChars(newText) : tokenize(newText);
 	const ids = new Map<string, number>();
 	const intern = (t: string) => {
 		const key = ignoreWhitespace && /^\s+$/.test(t) && !t.includes('\n') ? ' ' : t;

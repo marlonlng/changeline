@@ -166,22 +166,18 @@ body.vscode-high-contrast-light {
 	overflow-wrap: anywhere;
 }
 
-.diff-body .ch.mod,
-.diff-body .ch.mod .ln,
-.diff-body .pane.l .ch.del,
-.diff-body .pane.l .ch.del .ln,
-.diff-body .pane.r .ch.ins,
-.diff-body .pane.r .ch.ins .ln {
+.diff-body:not(.hl-none) .ch.mod,
+.diff-body:not(.hl-none) .ch.mod .ln {
 	background: var(--d-mod);
 }
 
-.diff-body .pane.l .ch.del,
-.diff-body .pane.l .ch.del .ln {
+.diff-body:not(.hl-none) .pane.l .ch.del,
+.diff-body:not(.hl-none) .pane.l .ch.del .ln {
 	background: var(--d-del);
 }
 
-.diff-body .pane.r .ch.ins,
-.diff-body .pane.r .ch.ins .ln {
+.diff-body:not(.hl-none) .pane.r .ch.ins,
+.diff-body:not(.hl-none) .pane.r .ch.ins .ln {
 	background: var(--d-ins);
 }
 
@@ -345,13 +341,13 @@ body.vscode-high-contrast-light {
 }
 
 
-.diff-body.unified .u-line.del,
-.diff-body.unified .u-line.del .ln {
+.diff-body.unified:not(.hl-none) .u-line.del,
+.diff-body.unified:not(.hl-none) .u-line.del .ln {
 	background: var(--d-del);
 }
 
-.diff-body.unified .u-line.ins,
-.diff-body.unified .u-line.ins .ln {
+.diff-body.unified:not(.hl-none) .u-line.ins,
+.diff-body.unified:not(.hl-none) .u-line.ins .ln {
 	background: var(--d-ins);
 }
 

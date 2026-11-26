@@ -67,13 +67,19 @@ test('diff viewer: highlighting, word diff, whitespace, collapse, F7, unified, i
 	const wordText = await w.eval<string[]>(`[...document.querySelectorAll('.diff-body .ch[data-chunk="0"] .wd')].map((e) => e.textContent)`);
 	assert.deepEqual(wordText, ['Hello', 'Hi']);
 
-	await w.click('button[title="Highlight words"]');
-	await w.waitFor(`document.querySelectorAll('.diff-body .ch .wd').length === 0`, 'word highlighting off');
-	await w.click('button[title="Highlight words"]');
+	await w.select('select[title="Highlighting"]', 'lines');
+	await w.waitFor(`document.querySelectorAll('.diff-body .ch .wd').length === 0 && document.querySelectorAll('.pane.r .ch').length === 3`, 'only lines highlighted');
+	await w.select('select[title="Highlighting"]', 'chars');
+	await w.waitFor(`[...document.querySelectorAll('.pane.r .ch[data-chunk="0"] .wd')].map((e) => e.textContent).join('|') === 'i'`, 'characters highlighted: Hello → Hi keeps H and the rest');
+	await w.select('select[title="Highlighting"]', 'none');
+	await w.waitFor(`document.querySelector('.diff-body.hl-none') !== null && getComputedStyle(document.querySelector('.pane.r .ch.mod')).backgroundColor === 'rgba(0, 0, 0, 0)'`, 'no highlighting');
+	await w.select('select[title="Highlighting"]', 'words');
 	await w.waitFor(`document.querySelectorAll('.diff-body .ch .wd').length > 0`, 'word highlighting on');
 
 	await w.select('select[title="Whitespace"]', 'all');
 	await w.waitFor(`document.querySelectorAll('.pane.r .ch').length === 2`, 'whitespace-only change ignored');
+	await w.select('select[title="Whitespace"]', 'emptyLines');
+	await w.waitFor(`document.querySelectorAll('.pane.r .ch').length === 2`, 'whitespace and empty lines ignored');
 	await w.select('select[title="Whitespace"]', 'none');
 	await w.waitFor(`document.querySelectorAll('.pane.r .ch').length === 3`, 'whitespace change shown again');
 

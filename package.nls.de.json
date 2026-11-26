@@ -251,5 +251,15 @@
 	"command.lineStatus.showDiff": "Diff anzeigen",
 	"command.lineStatus.copy": "Kopieren",
 	"command.lineStatus.moveToChangelist": "In andere Changelist verschieben…",
-	"config.diff.softWraps": "Lange Zeilen im Diff-Viewer umbrechen statt horizontal zu scrollen (*Use soft wraps* in JetBrains-IDEs)."
+	"config.diff.softWraps": "Lange Zeilen im Diff-Viewer umbrechen statt horizontal zu scrollen (*Use soft wraps* in JetBrains-IDEs).",
+	"config.diff.ignoreWhitespace.none": "Nicht ignorieren",
+	"config.diff.ignoreWhitespace.trim": "Leerraum an den Enden entfernen",
+	"config.diff.ignoreWhitespace.all": "Leerraum ignorieren",
+	"config.diff.ignoreWhitespace.emptyLines": "Leerraum und leere Zeilen ignorieren",
+	"config.diff.highlighting": "Voreinstellung für die Hervorhebung in der Diff-Ansicht.",
+	"config.diff.highlighting.words": "Wörter hervorheben",
+	"config.diff.highlighting.lines": "Zeilen hervorheben",
+	"config.diff.highlighting.split": "Geteilte Änderungen hervorheben",
+	"config.diff.highlighting.chars": "Zeichen hervorheben",
+	"config.diff.highlighting.none": "Nicht hervorheben"
 }

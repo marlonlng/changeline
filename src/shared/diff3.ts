@@ -1,4 +1,4 @@
-import { DiffChunk, DiffOptions, diffInts, diffLines, lineKey, tokenize } from './diff';
+import { DiffChunk, DiffOptions, diffInts, diffLines, lineKey, tokenize, WhitespaceMode } from './diff';
 
 export type MergeChangeKind = 'left' | 'right' | 'both' | 'conflict';
 
@@ -108,7 +108,7 @@ export function computeMerge(
 function sameLines(
 	a: readonly string[], aStart: number, aEnd: number,
 	b: readonly string[], bStart: number, bEnd: number,
-	mode: 'none' | 'trim' | 'all',
+	mode: WhitespaceMode,
 ): boolean {
 	if (aEnd - aStart !== bEnd - bStart) {
 		return false;

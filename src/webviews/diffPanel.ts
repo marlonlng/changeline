@@ -4,7 +4,7 @@ import { moveChunkToChangelist } from '../commands/changelistPicker';
 import { DiffContext, DiffSide, DiffTarget, openNativeDiff } from '../diff';
 import type { Repository } from '../git/repository';
 import { services } from '../services';
-import { applyChunks, chunkKey, diffLines, isBinary, splitLines, WhitespaceMode } from '../shared/diff';
+import { applyChunks, chunkKey, diffLines, HighlightMode, isBinary, splitChunks, splitLines, WhitespaceMode } from '../shared/diff';
 import type { LineChange } from '../shared/lineChanges';
 import { basename, config, samePath } from '../util';
 import { RpcHandlers, WebviewPanelBase } from './host';
@@ -17,7 +17,7 @@ export interface DiffViewSettings {
 	sideBySide: boolean;
 	softWrap: boolean;
 	collapse: boolean;
-	highlightWords: boolean;
+	highlight: HighlightMode;
 	context: number;
 }
 
@@ -137,7 +137,7 @@ export class DiffPanel extends WebviewPanelBase {
 			sideBySide: stored.sideBySide ?? config('diff.sideBySide', true),
 			softWrap: stored.softWrap ?? config('diff.softWraps', false),
 			collapse: stored.collapse ?? config('diff.collapseUnchanged', false),
-			highlightWords: stored.highlightWords ?? true,
+			highlight: stored.highlight ?? ((stored as { highlightWords?: boolean }).highlightWords === false ? 'lines' : config<HighlightMode>('diff.highlighting', 'words')),
 			context: config('diff.contextLines', 4),
 		};
 	}
@@ -206,12 +206,13 @@ export class DiffPanel extends WebviewPanelBase {
 	}
 
 	/** Recomputes chunks on the current content with the webview's options. */
-	private async chunks(whitespace: WhitespaceMode) {
+	private async chunks(whitespace: WhitespaceMode, split = false) {
 		const t = this.target;
 		const [l, r] = await Promise.all([readSide(t.repo, t.left), readSide(t.repo, t.right)]);
 		const oldLines = splitLines(l?.toString('utf8') ?? '');
 		const newLines = splitLines(r?.toString('utf8') ?? '');
-		const chunks = diffLines(oldLines, newLines, { whitespace });
+		const lineChunks = diffLines(oldLines, newLines, { whitespace });
+		const chunks = split ? splitChunks(lineChunks) : lineChunks;
 		return { oldLines, newLines, chunks, find: (key: string) => chunks.find((c) => chunkKey(c, oldLines, newLines) === key) };
 	}
 
@@ -230,9 +231,9 @@ export class DiffPanel extends WebviewPanelBase {
 				const current = services().context.globalState.get<Partial<DiffViewSettings>>(SETTINGS_KEY, {});
 				await services().context.globalState.update(SETTINGS_KEY, { ...current, ...p });
 			},
-			revertChunk: async (p: { key: string; whitespace: WhitespaceMode }) => {
+			revertChunk: async (p: { key: string; whitespace: WhitespaceMode; split?: boolean }) => {
 				const t = this.target;
-				const { oldLines, newLines, chunks, find } = await this.chunks(p.whitespace);
+				const { oldLines, newLines, chunks, find } = await this.chunks(p.whitespace, p.split);
 				const target = find(p.key);
 				if (!target) {
 					throw new Error(vscode.l10n.t('The change no longer exists.'));
@@ -251,9 +252,9 @@ export class DiffPanel extends WebviewPanelBase {
 			includeFile: (p: { included: boolean }) => {
 				services().changelists.setIncluded([this.target.repo.absolutePath(this.target.path)], p.included);
 			},
-			stageChunk: async (p: { key: string; whitespace: WhitespaceMode }) => {
+			stageChunk: async (p: { key: string; whitespace: WhitespaceMode; split?: boolean }) => {
 				const t = this.target;
-				const { oldLines, newLines, chunks, find } = await this.chunks(p.whitespace);
+				const { oldLines, newLines, chunks, find } = await this.chunks(p.whitespace, p.split);
 				const target = find(p.key);
 				if (!target) {
 					throw new Error(vscode.l10n.t('The change no longer exists.'));
@@ -261,9 +262,9 @@ export class DiffPanel extends WebviewPanelBase {
 				await t.repo.writeIndexContent(t.path, applyChunks(oldLines, newLines, chunks, (c) => c === target));
 				await this.reload();
 			},
-			unstageChunk: async (p: { key: string; whitespace: WhitespaceMode }) => {
+			unstageChunk: async (p: { key: string; whitespace: WhitespaceMode; split?: boolean }) => {
 				const t = this.target;
-				const { oldLines, newLines, chunks, find } = await this.chunks(p.whitespace);
+				const { oldLines, newLines, chunks, find } = await this.chunks(p.whitespace, p.split);
 				const target = find(p.key);
 				if (!target) {
 					throw new Error(vscode.l10n.t('The change no longer exists.'));

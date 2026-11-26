@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { applyChunks, diffInts, diffLines, diffWords, splitLines } from '../../shared/diff';
+import { applyChunks, diffInts, diffLines, diffWords, splitChunks, splitLines } from '../../shared/diff';
 import { autoMerge, computeMerge } from '../../shared/diff3';
 
 function lcsLength(a: number[], b: number[]): number {
@@ -163,4 +163,37 @@ test('resolve simple conflicts on word level', async () => {
 	assert.equal(resolveSimpleConflict('a b c\n', 'a X c\n', 'a Y c\n'), undefined);
 	assert.equal(resolveSimpleConflict('x\n', 'same\n', 'same\n'), 'same\n');
 	assert.equal(resolveSimpleConflict('foo(a, b);\n', 'foo(a, b, c);\n', 'bar(a, b);\n'), 'bar(a, b, c);\n');
+});
+
+test('diffLines: "ignore whitespaces and empty lines" drops blank-only changes', () => {
+	const oldLines = splitLines('a\n\nb\nc\n');
+	const newLines = splitLines('a\nb\n\n\nc  x\n');
+	assert.equal(diffLines(oldLines, newLines, { whitespace: 'all' }).length, 2);
+	const chunks = diffLines(oldLines, newLines, { whitespace: 'emptyLines' });
+	assert.deepEqual(chunks.map((c) => newLines.slice(c.newStart, c.newEnd).join('')), ['c  x\n']);
+	assert.deepEqual(diffLines(splitLines('a\nb\n'), splitLines('a\n\nb\n'), { whitespace: 'emptyLines' }), []);
+});
+
+test('splitChunks: a modified block of equal size becomes one change per line', () => {
+	assert.deepEqual(splitChunks([{ oldStart: 2, oldEnd: 4, newStart: 2, newEnd: 4 }, { oldStart: 6, oldEnd: 7, newStart: 6, newEnd: 8 }]), [
+		{ oldStart: 2, oldEnd: 3, newStart: 2, newEnd: 3 },
+		{ oldStart: 3, oldEnd: 4, newStart: 3, newEnd: 4 },
+		{ oldStart: 6, oldEnd: 7, newStart: 6, newEnd: 8 },
+	]);
+});
+
+test('diffWords: character highlighting marks single characters', () => {
+	const r = diffWords('return "Hello";', 'return "Hallo";', false, true);
+	assert.deepEqual(r.oldRanges, [{ start: 9, end: 10 }]);
+	assert.deepEqual(r.newRanges, [{ start: 9, end: 10 }]);
+	assert.deepEqual(diffWords('a\r\nb', 'a\r\nc', false, true).newRanges, [{ start: 3, end: 4 }]);
+});
+
+test('applyChunks: unchanged parts of different length come from the new side', () => {
+	const oldLines = splitLines('a\nb\nc\n');
+	const newLines = splitLines('a\n\nb\nC\n');
+	const chunks = diffLines(oldLines, newLines, { whitespace: 'emptyLines' });
+	assert.equal(chunks.length, 1);
+	assert.equal(applyChunks(oldLines, newLines, chunks, () => false), 'a\n\nb\nc\n');
+	assert.equal(applyChunks(oldLines, newLines, chunks, () => true), 'a\n\nb\nC\n');
 });

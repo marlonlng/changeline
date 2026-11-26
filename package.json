@@ -2569,7 +2569,33 @@
 					"enum": [
 						"none",
 						"trim",
-						"all"
+						"all",
+						"emptyLines"
+					],
+					"enumDescriptions": [
+						"%config.diff.ignoreWhitespace.none%",
+						"%config.diff.ignoreWhitespace.trim%",
+						"%config.diff.ignoreWhitespace.all%",
+						"%config.diff.ignoreWhitespace.emptyLines%"
+					]
+				},
+				"changeline.diff.highlighting": {
+					"type": "string",
+					"default": "words",
+					"markdownDescription": "%config.diff.highlighting%",
+					"enum": [
+						"words",
+						"lines",
+						"split",
+						"chars",
+						"none"
+					],
+					"enumDescriptions": [
+						"%config.diff.highlighting.words%",
+						"%config.diff.highlighting.lines%",
+						"%config.diff.highlighting.split%",
+						"%config.diff.highlighting.chars%",
+						"%config.diff.highlighting.none%"
 					]
 				},
 				"changeline.diff.softWraps": {
