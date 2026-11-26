@@ -114,10 +114,26 @@ test('diff viewer: highlighting, word diff, whitespace, collapse, F7, unified, i
 	const scrolled = await w.eval<{ left: number; right: number }>(`({ left: document.querySelector('.pane.l').scrollTop, right: document.querySelector('.pane.r').scrollTop })`);
 	assert.ok(scrolled.right > 0 && Math.abs(scrolled.left - scrolled.right) < 2, `both sides scroll together: ${JSON.stringify(scrolled)}`);
 	assert.equal(await w.eval<string>(`getComputedStyle(document.querySelector('.pane.r .code')).whiteSpace`), 'pre', 'long lines scroll instead of wrapping');
-	await w.click('button[title="Use soft wraps"]');
+	const diffSetting = async (label: string) => {
+		await w.click('button[title="Diff Settings"]');
+		await w.clickText('.jg-menu .item', label);
+	};
+	await diffSetting('Use soft wraps');
 	await w.waitFor(`document.querySelector('.diff-body.side.wrap') !== null && getComputedStyle(document.querySelector('.pane.r .code')).whiteSpace === 'pre-wrap'`, 'soft wraps on');
-	await w.click('button[title="Use soft wraps"]');
+	await diffSetting('Use soft wraps');
 	await w.waitFor(`document.querySelector('.diff-body.side.wrap') === null`, 'soft wraps off');
+	await diffSetting('Show White Spaces');
+	await w.waitFor(`document.querySelector('.diff-body.show-ws') !== null && document.querySelectorAll('.pane.r .ws').length > 0`, 'white spaces shown');
+	await diffSetting('Show White Spaces');
+	await diffSetting('Show Line Numbers');
+	await w.waitFor(`getComputedStyle(document.querySelector('.pane.r .ln')).display === 'none'`, 'line numbers hidden');
+	await diffSetting('Show Line Numbers');
+	await diffSetting('Synchronize Scrolling');
+	await w.eval(`document.querySelector('.pane.r').scrollTop = 0; document.querySelector('.pane.l').scrollTop = 0;`);
+	await w.eval(`document.querySelector('.pane.r').scrollTop = 120`);
+	await new Promise((r) => setTimeout(r, 300));
+	assert.equal(await w.eval<number>(`document.querySelector('.pane.l').scrollTop`), 0, 'without synchronized scrolling the left side stays');
+	await diffSetting('Synchronize Scrolling');
 
 	await w.select('select[title="Viewer"]', 'unified');
 	await w.waitFor(`document.querySelectorAll('.diff-body.unified .u-chunk').length === 3`, 'unified viewer');

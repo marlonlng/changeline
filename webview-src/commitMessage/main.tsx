@@ -17,6 +17,7 @@ interface Options {
 	checkTodo: boolean;
 	reformatCode: boolean;
 	optimizeImports: boolean;
+	cleanupCode: boolean;
 	gpgSign: boolean;
 	runTests: boolean;
 	checksAfterCommit: boolean;
@@ -307,6 +308,7 @@ function App() {
 					<div class="options-title">{t('Before Commit')}</div>
 					<Checkbox checked={st.options.reformatCode} onChange={(v) => setOption('reformatCode', v)} label={t('Reformat code')} />
 					<Checkbox checked={st.options.optimizeImports} onChange={(v) => setOption('optimizeImports', v)} label={t('Optimize imports')} />
+					<Checkbox checked={st.options.cleanupCode} onChange={(v) => setOption('cleanupCode', v)} label={t('Cleanup (fix all)')} />
 					<Checkbox checked={st.options.analyzeCode} onChange={(v) => setOption('analyzeCode', v)} label={t('Analyze code (problems in changed files)')} />
 					<Checkbox checked={st.options.checkTodo} onChange={(v) => setOption('checkTodo', v)} label={t('Check TODO')} />
 					<Checkbox checked={st.options.runTests} onChange={(v) => setOption('runTests', v)} label={t('Run tests (VS Code task)')} />

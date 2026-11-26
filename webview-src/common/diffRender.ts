@@ -77,6 +77,9 @@ export interface Settings {
 	whitespace: WhitespaceMode;
 	sideBySide: boolean;
 	softWrap: boolean;
+	syncScroll?: boolean;
+	lineNumbers?: boolean;
+	showWhitespace?: boolean;
 	collapse: boolean;
 	highlight: HighlightMode;
 	context: number;
@@ -109,6 +112,7 @@ export interface DiffData {
 }
 
 export interface Model {
+	showWhitespace?: boolean;
 	oldLines: string[];
 	newLines: string[];
 	chunks: DiffChunk[];
@@ -148,7 +152,7 @@ export function buildModel(d: DiffData, s: Settings): Model {
 			words.set(i, { ...r, oldOffsets: offsets(oldPart), newOffsets: offsets(newPart) });
 		});
 	}
-	return { oldLines, newLines, chunks, keys, hlOld, hlNew, words };
+	return { oldLines, newLines, chunks, keys, hlOld, hlNew, words, showWhitespace: s.showWhitespace };
 }
 
 export const markClass = (el: HTMLElement) => ['ins', 'del', 'mod', 'excluded', 'current'].filter((c) => el.classList.contains(c)).join(' ');
@@ -177,7 +181,7 @@ export function lineHtml(m: Model, side: 'old' | 'new', lineIndex: number, chunk
 			marks = rangesInLine(side === 'old' ? w.oldRanges : w.newRanges, start, start + stripEol(lines[lineIndex]).length);
 		}
 	}
-	const html = renderSegments(segs, marks);
+	const html = renderSegments(segs, marks, 'wd', m.showWhitespace);
 	return html || '&#8203;';
 }
 

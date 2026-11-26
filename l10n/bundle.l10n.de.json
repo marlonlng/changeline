@@ -1059,5 +1059,10 @@
 	"Commit checks failed for \"{0}\": {1}": "Commit-Prüfungen für „{0}“ fehlgeschlagen: {1}",
 	"Show Problems": "Probleme anzeigen",
 	"Commit checks passed": "Commit-Prüfungen bestanden",
-	"Run advanced checks after a commit is done": "Erweiterte Prüfungen nach dem Commit ausführen"
+	"Run advanced checks after a commit is done": "Erweiterte Prüfungen nach dem Commit ausführen",
+	"Diff Settings": "Diff-Einstellungen",
+	"Synchronize Scrolling": "Scrollen synchronisieren",
+	"Show Line Numbers": "Zeilennummern anzeigen",
+	"Show White Spaces": "Leerzeichen anzeigen",
+	"Cleanup (fix all)": "Bereinigen (alles korrigieren)"
 }

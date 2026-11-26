@@ -696,6 +696,23 @@ test('before-commit checks: analyze code, check TODO, run tests, reformat, optim
 		assert.equal(read('imp.fmt'), 'C\nD\n');
 		fmt.dispose();
 		imports.dispose();
+		const fixAll = vscode.languages.registerCodeActionsProvider(selector, {
+			provideCodeActions: (doc) => {
+				const action = new vscode.CodeAction('Fix all', vscode.CodeActionKind.SourceFixAll);
+				action.edit = new vscode.WorkspaceEdit();
+				action.edit.replace(doc.uri, new vscode.Range(0, 0, doc.lineCount, 0), doc.getText().replace(/;;/g, ';'));
+				return [action];
+			},
+		}, { providedCodeActionKinds: [vscode.CodeActionKind.SourceFixAll] });
+		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+		const impAbs = await changeOnly('imp.fmt', 'x();;\n');
+		await waitFor(() => {
+			const open = vscode.workspace.textDocuments.find((d) => d.uri.fsPath === vscode.Uri.file(impAbs).fsPath);
+			return !open || open.getText() === 'x();;\n';
+		}, 'editor model caught up with the file');
+		assert.equal(await run('cleaned', { cleanupCode: true }), true);
+		assert.equal(await head('imp.fmt'), 'x();\n', 'Cleanup ran the fix-all code action before the commit');
+		fixAll.dispose();
 	} finally {
 		restore();
 		await setting('commit.testTask', undefined, vscode.ConfigurationTarget.Workspace);

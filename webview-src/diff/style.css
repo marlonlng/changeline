@@ -562,3 +562,25 @@ body.vscode-high-contrast-light {
 	font-size: 0.9em;
 }
 
+.diff-body.no-ln .ln {
+	display: none;
+}
+
+.diff-body.show-ws .ws {
+	background-image: radial-gradient(circle, var(--vscode-editorWhitespace-foreground, rgba(128, 128, 128, 0.6)) 0.07em, transparent 0.09em);
+	background-size: 1ch 100%;
+	background-repeat: repeat-x;
+	background-position: center;
+}
+
+.diff-body.show-ws .wt {
+	position: relative;
+}
+
+.diff-body.show-ws .wt::before {
+	content: '→';
+	position: absolute;
+	left: 0;
+	color: var(--vscode-editorWhitespace-foreground, rgba(128, 128, 128, 0.6));
+}
+

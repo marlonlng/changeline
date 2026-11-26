@@ -148,7 +148,7 @@ function esc(s: string): string {
 }
 
 /** Renders segments to HTML, wrapping the given character ranges with `markClass`. */
-export function renderSegments(segments: Segment[], marks: { start: number; end: number }[] = [], markClass = 'wd'): string {
+export function renderSegments(segments: Segment[], marks: { start: number; end: number }[] = [], markClass = 'wd', whitespace = false): string {
 	if (!segments.length) {
 		return '';
 	}
@@ -173,7 +173,7 @@ export function renderSegments(segments: Segment[], marks: { start: number; end:
 			} else {
 				end = seg.text.length;
 			}
-			const piece = esc(seg.text.slice(offset, end));
+			const piece = whitespace ? esc(seg.text.slice(offset, end)).replace(/ +/g, '<span class="ws">$&</span>').replace(/\t/g, '<span class="wt">\t</span>') : esc(seg.text.slice(offset, end));
 			const inner = seg.cls ? `<span class="${seg.cls}">${piece}</span>` : piece;
 			html += marked ? `<span class="${markClass}">${inner}</span>` : inner;
 			offset = end;

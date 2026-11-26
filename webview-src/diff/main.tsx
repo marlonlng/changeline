@@ -6,7 +6,7 @@ import { HighlightMode, WhitespaceMode } from '../../src/shared/diff';
 import { chunkForLineChange, LineChange } from '../../src/shared/lineChanges';
 import { linkIssues } from '../../src/shared/issueLinks';
 import { buildBlocks, buildModel, DiffData, markClass, renderSides, renderUnified, Settings } from '../common/diffRender';
-import { Checkbox, Icon, IconButton, useKeys } from '../common/components';
+import { Checkbox, Icon, IconButton, PopupMenu, useKeys } from '../common/components';
 import { basename, dirname, fullDate } from '../common/format';
 import { call, on } from '../common/rpc';
 import { plural, t } from '../common/l10n';
@@ -28,6 +28,7 @@ function App() {
 	const focusRef = useRef<LineChange | undefined>(undefined);
 	const appliedFocus = useRef(0);
 	const [busy, setBusy] = useState(false);
+	const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 	const [composer, setComposer] = useState<{ line: number; side: 'LEFT' | 'RIGHT'; inReplyTo?: string; text: string } | null>(null);
 
 	useEffect(() => {
@@ -59,7 +60,7 @@ function App() {
 	}, []);
 
 	const s = settings ?? data?.settings;
-	const model = useMemo(() => (data && s && !data.binary && !data.tooLarge ? buildModel(data, s) : null), [data, s?.whitespace, s?.highlight]);
+	const model = useMemo(() => (data && s && !data.binary && !data.tooLarge ? buildModel(data, s) : null), [data, s?.whitespace, s?.highlight, s?.showWhitespace]);
 	const blocks = useMemo(() => (model && s ? buildBlocks(model, s.collapse, s.context, expanded) : []), [model, s?.collapse, s?.context, expanded]);
 	const html = useMemo(() => {
 		if (!model || !data || !s) {
@@ -106,6 +107,13 @@ function App() {
 		linksRef.current?.refresh();
 	}, [html]);
 
+	const settingsRef = useRef(s);
+	settingsRef.current = s;
+	useEffect(() => {
+		if (linksRef.current) {
+			linksRef.current.synced = s?.syncScroll !== false;
+		}
+	}, [s?.syncScroll]);
 	const sideBySide = !!s?.sideBySide;
 	const loaded = !!data && !!s;
 	useEffect(() => {
@@ -116,6 +124,7 @@ function App() {
 		const panes = sideBySide && leftRef.current ? [leftRef.current, master] : [master];
 		const dividers = sideBySide && svgRef.current ? [svgRef.current] : [];
 		const links = new LinkedPanes(panes, dividers, (_k, i) => bandsRef.current.get(i), placeActions);
+		links.synced = settingsRef.current?.syncScroll !== false;
 		linksRef.current = links;
 		links.refresh();
 		return () => {
@@ -328,7 +337,14 @@ function App() {
 					<option value="none">{t('Do not highlight')}</option>
 				</select>
 				<IconButton icon="fold" title={t('Collapse unchanged fragments')} active={s.collapse} onClick={() => update({ collapse: !s.collapse })} />
-				<IconButton icon="word-wrap" title={t('Use soft wraps')} active={s.softWrap} onClick={() => update({ softWrap: !s.softWrap })} />
+				<IconButton
+					icon="settings-gear"
+					title={t('Diff Settings')}
+					onClick={(e) => {
+						const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+						setMenu({ x: Math.max(0, r.right - 240), y: r.bottom + 2 });
+					}}
+				/>
 				<span class="spacer" />
 				{data.capabilities.include && (
 					<Checkbox checked={data.included} onChange={(v) => act('includeFile', { included: v })} label={t('Include into commit')} />
@@ -387,7 +403,7 @@ function App() {
 			) : null}
 			<div class="diff-scroll" style={{ display: data.binary || data.tooLarge || identical ? 'none' : undefined }} onClick={onBodyClick as any} onDblClick={onBodyDblClick as any}>
 				{s.sideBySide ? (
-					<div class={`diff-body side jg-code${s.highlight === 'none' ? ' hl-none' : ''}${busy ? ' busy' : ''}${data.review ? ' review' : ''}${s.softWrap ? ' wrap' : ''}`} style={{ '--lnw': lnWidth } as any}>
+					<div class={`diff-body side jg-code${s.highlight === 'none' ? ' hl-none' : ''}${busy ? ' busy' : ''}${data.review ? ' review' : ''}${s.softWrap ? ' wrap' : ''}${s.lineNumbers === false ? ' no-ln' : ''}${s.showWhitespace ? ' show-ws' : ''}`} style={{ '--lnw': lnWidth } as any}>
 						<div ref={leftRef} class="pane l" tabIndex={0} />
 						<div class="divider">
 							<svg ref={svgRef} class="bands" />
@@ -396,7 +412,7 @@ function App() {
 						<div ref={bodyRef} class="pane r" tabIndex={0} />
 					</div>
 				) : (
-					<div ref={bodyRef} class={`diff-body unified pane jg-code${s.highlight === 'none' ? ' hl-none' : ''}${busy ? ' busy' : ''}${data.review ? ' review' : ''}${s.softWrap ? ' wrap' : ''}`} style={{ '--lnw': lnWidth } as any} tabIndex={0} />
+					<div ref={bodyRef} class={`diff-body unified pane jg-code${s.highlight === 'none' ? ' hl-none' : ''}${busy ? ' busy' : ''}${data.review ? ' review' : ''}${s.softWrap ? ' wrap' : ''}${s.lineNumbers === false ? ' no-ln' : ''}${s.showWhitespace ? ' show-ws' : ''}`} style={{ '--lnw': lnWidth } as any} tabIndex={0} />
 				)}
 				<OverviewRuler
 					target={bodyRef}
@@ -469,6 +485,20 @@ function App() {
 						</span>
 					)}
 				</div>
+			)}
+			{menu && (
+				<PopupMenu
+					x={menu.x}
+					y={menu.y}
+					onClose={() => setMenu(null)}
+					items={[
+						{ label: `${s.syncScroll !== false ? '✓ ' : '   '}${t('Synchronize Scrolling')}`, onClick: () => update({ syncScroll: s.syncScroll === false }) },
+						{ label: `${s.softWrap ? '✓ ' : '   '}${t('Use soft wraps')}`, onClick: () => update({ softWrap: !s.softWrap }) },
+						{ label: `${s.lineNumbers !== false ? '✓ ' : '   '}${t('Show Line Numbers')}`, onClick: () => update({ lineNumbers: s.lineNumbers === false }) },
+						{ label: `${s.showWhitespace ? '✓ ' : '   '}${t('Show White Spaces')}`, onClick: () => update({ showWhitespace: !s.showWhitespace }) },
+						{ label: `${s.collapse ? '✓ ' : '   '}${t('Collapse unchanged fragments')}`, onClick: () => update({ collapse: !s.collapse }) },
+					]}
+				/>
 			)}
 		</div>
 	);

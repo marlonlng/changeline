@@ -35,7 +35,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | Right margin with "Wrap when typing reaches right margin" | Commit Message view, `changeline.commit.wrapWhenTypingReachesRightMargin` | U, V |
 | Generate commit message (AI Assistant) | Sparkle button, uses VS Code's language model API (e.g. GitHub Copilot) when one is installed | E (prompt, streaming and diff with a stand-in model) |
 | Author, Sign-off, Run Git hooks, GPG signing | Options (gear) | I (args), V (options panel) |
-| Before commit: Reformat code, Optimize imports, Analyze code, Check TODO, Run tests | Options (gear); the formatter, organize-imports action, problems and task of the workspace | E |
+| Before commit: Reformat code, Optimize imports, Cleanup (fix all), Analyze code, Check TODO, Run tests | Options (gear); the formatter, organize-imports action, problems and task of the workspace | E |
 | Run advanced checks after a commit is done (tests and code analysis in the background, warning with Show Problems) | Options (gear) | E |
 | Detached HEAD warning, CRLF warning (Windows) | Modal before commit | E |
 | Commit / Commit and Push | Buttons, ⌘↩ / ⌥⌘↩ | E, V (Commit button), S 01 |
@@ -51,7 +51,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | JetBrains | Changeline | Evidence |
 | --- | --- | --- |
 | Side-by-side viewer with two editors that scroll together and curved bands in the divider, unified viewer, syntax highlighting | Diff viewer | U, V, S 02, H |
-| Highlight words / lines / split changes / characters / do not highlight; do not ignore, trim whitespaces, ignore whitespaces (and empty lines), ignore formatting; collapse unchanged fragments; use soft wraps | Diff toolbar | U, V, H |
+| Highlight words / lines / split changes / characters / do not highlight; do not ignore, trim whitespaces, ignore whitespaces (and empty lines), ignore formatting; collapse unchanged fragments; settings menu with Synchronize Scrolling, Use Soft Wraps, Show Line Numbers, Show White Spaces | Diff toolbar | U, V, H |
 | » revert chunk, include checkbox, stage / unstage chunk | Diff gutter | V (revert, include), I (stage / unstage index writes), H |
 | Next / previous difference (F7), next / previous file | Toolbar, keys | V, H |
 | Change markers in the scrollbar, click jumps to the change | Overview bar of the diff viewer | U, V, S 02 |

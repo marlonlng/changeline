@@ -17,6 +17,9 @@ export interface DiffViewSettings {
 	whitespace: WhitespaceMode;
 	sideBySide: boolean;
 	softWrap: boolean;
+	syncScroll: boolean;
+	lineNumbers: boolean;
+	showWhitespace: boolean;
 	collapse: boolean;
 	highlight: HighlightMode;
 	context: number;
@@ -138,6 +141,9 @@ export class DiffPanel extends WebviewPanelBase {
 			whitespace: stored.whitespace ?? config<WhitespaceMode>('diff.ignoreWhitespace', 'none'),
 			sideBySide: stored.sideBySide ?? config('diff.sideBySide', true),
 			softWrap: stored.softWrap ?? config('diff.softWraps', false),
+			syncScroll: stored.syncScroll ?? true,
+			lineNumbers: stored.lineNumbers ?? true,
+			showWhitespace: stored.showWhitespace ?? false,
 			collapse: stored.collapse ?? config('diff.collapseUnchanged', false),
 			highlight: stored.highlight ?? ((stored as { highlightWords?: boolean }).highlightWords === false ? 'lines' : config<HighlightMode>('diff.highlighting', 'words')),
 			context: config('diff.contextLines', 4),

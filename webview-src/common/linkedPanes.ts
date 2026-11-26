@@ -13,6 +13,8 @@ export class LinkedPanes {
 	private readonly expected: (number | undefined)[] = [];
 	private frame = 0;
 	private readonly cleanup: (() => void)[] = [];
+	/** JetBrains' "Synchronize Scrolling": when off, every pane scrolls on its own and only the bands follow. */
+	synced = true;
 
 	constructor(
 		private readonly panes: HTMLElement[],
@@ -111,7 +113,7 @@ export class LinkedPanes {
 		}
 		const center = src.scrollTop + src.clientHeight / 2;
 		this.panes.forEach((pane, k) => {
-			if (k === source) {
+			if (k === source || !this.synced) {
 				return;
 			}
 			const target = Math.round(mapOffset(this.anchors(source, k), center) - pane.clientHeight / 2);

@@ -18,6 +18,7 @@ export interface CommitOptions {
 	cleanupWhitespace: boolean;
 	reformatCode: boolean;
 	optimizeImports: boolean;
+	cleanupCode: boolean;
 	gpgSign: boolean;
 	runTests: boolean;
 	checksAfterCommit: boolean;
@@ -120,6 +121,7 @@ export class CommitController implements vscode.Disposable {
 			cleanupWhitespace: st.get('changeline.commit.cleanupWhitespace', false),
 			reformatCode: st.get('changeline.commit.reformatCode', config('commit.reformatCode', false)),
 			optimizeImports: st.get('changeline.commit.optimizeImports', config('commit.optimizeImports', false)),
+			cleanupCode: st.get('changeline.commit.cleanupCode', false),
 			gpgSign: st.get('changeline.commit.gpgSign', false),
 			runTests: st.get('changeline.commit.runTests', false),
 			checksAfterCommit: st.get('changeline.commit.checksAfterCommit', false),
@@ -348,7 +350,7 @@ export class CommitController implements vscode.Disposable {
 
 	/** "Reformat code" and "Optimize imports" before commit, for fully included text files. */
 	private async prepareFiles(files: FileNode[], options: CommitOptions): Promise<void> {
-		if (!options.reformatCode && !options.optimizeImports) {
+		if (!options.reformatCode && !options.optimizeImports && !options.cleanupCode) {
 			return;
 		}
 		const cl = services().changelists;
@@ -363,15 +365,21 @@ export class CommitController implements vscode.Disposable {
 			} catch {
 				continue;
 			}
-			if (options.optimizeImports) {
+			const sourceAction = async (kind: vscode.CodeActionKind) => {
 				const range = new vscode.Range(0, 0, doc.lineCount, 0);
-				const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>('vscode.executeCodeActionProvider', uri, range, vscode.CodeActionKind.SourceOrganizeImports.value);
-				const action = actions?.find((a) => a.kind && vscode.CodeActionKind.SourceOrganizeImports.contains(a.kind));
+				const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>('vscode.executeCodeActionProvider', uri, range, kind.value);
+				const action = actions?.find((a) => a.kind && kind.contains(a.kind));
 				if (action?.edit) {
 					await vscode.workspace.applyEdit(action.edit);
 				} else if (action?.command) {
 					await vscode.commands.executeCommand(action.command.command, ...(action.command.arguments ?? []));
 				}
+			};
+			if (options.cleanupCode) {
+				await sourceAction(vscode.CodeActionKind.SourceFixAll);
+			}
+			if (options.optimizeImports) {
+				await sourceAction(vscode.CodeActionKind.SourceOrganizeImports);
 			}
 			if (options.reformatCode) {
 				const editorConfig = vscode.workspace.getConfiguration('editor', uri);
