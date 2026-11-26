@@ -1050,5 +1050,6 @@
 	"Long Edges": "Lange Kanten",
 	"Show First Parent": "Nur ersten Parent anzeigen",
 	"No Merges": "Keine Merges",
-	"Expand Linear Branches": "Lineare Branches ausklappen"
+	"Expand Linear Branches": "Lineare Branches ausklappen",
+	"Ignore formatting": "Formatierung ignorieren"
 }

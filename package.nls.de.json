@@ -270,5 +270,6 @@
 	"config.issueNavigation": "Issue-Navigation wie in JetBrains-IDEs: Issue-IDs in Commit-Nachrichten, die auf `pattern` (regulärer Ausdruck) passen, verlinken auf `link`; `$0` ist der ganze Treffer, `$1`… seine Gruppen. `#123` verlinkt bei GitHub und GitLab automatisch auf Issues.",
 	"command.logBranch.checkoutUpdate": "Auschecken und aktualisieren",
 	"command.logBranch.worktree": "In neuem Worktree auschecken…",
-	"config.branches.restoreWorkspace": "Arbeitsstand beim Branch-Wechsel wiederherstellen wie in JetBrains-IDEs: Die auf einem Branch geöffneten Editoren werden beim Auschecken eines anderen Branches geschlossen und beim erneuten Auschecken wieder geöffnet."
+	"config.branches.restoreWorkspace": "Arbeitsstand beim Branch-Wechsel wiederherstellen wie in JetBrains-IDEs: Die auf einem Branch geöffneten Editoren werden beim Auschecken eines anderen Branches geschlossen und beim erneuten Auschecken wieder geöffnet.",
+	"config.diff.ignoreWhitespace.formatting": "Formatierung ignorieren (Leerraum, leere Zeilen und Zeilenumbrüche)"
 }

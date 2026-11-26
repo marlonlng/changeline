@@ -316,6 +316,7 @@ function App() {
 					<option value="trim">{t('Trim whitespaces')}</option>
 					<option value="all">{t('Ignore whitespaces')}</option>
 					<option value="emptyLines">{t('Ignore whitespaces and empty lines')}</option>
+					<option value="formatting">{t('Ignore formatting')}</option>
 				</select>
 				<select title={t('Highlighting')} value={s.highlight} onChange={(e) => update({ highlight: (e.target as HTMLSelectElement).value as HighlightMode })}>
 					<option value="words">{t('Highlight words')}</option>

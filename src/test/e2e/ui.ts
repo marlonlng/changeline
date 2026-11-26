@@ -80,6 +80,8 @@ test('diff viewer: highlighting, word diff, whitespace, collapse, F7, unified, i
 	await w.waitFor(`document.querySelectorAll('.pane.r .ch').length === 2`, 'whitespace-only change ignored');
 	await w.select('select[title="Whitespace"]', 'emptyLines');
 	await w.waitFor(`document.querySelectorAll('.pane.r .ch').length === 2`, 'whitespace and empty lines ignored');
+	await w.select('select[title="Whitespace"]', 'formatting');
+	await w.waitFor(`document.querySelectorAll('.pane.r .ch').length === 2`, 'formatting ignored');
 	await w.select('select[title="Whitespace"]', 'none');
 	await w.waitFor(`document.querySelectorAll('.pane.r .ch').length === 3`, 'whitespace change shown again');
 
@@ -252,6 +254,18 @@ test('commit message view: inspections, options, commit button, amend, message h
 	await v.waitFor(`document.querySelector('.completion .item')?.textContent.trim() === 'b.txt'`, 'changed file names complete');
 	await v.key('Enter', {}, 'textarea.message');
 	await v.waitFor(`document.querySelector('textarea.message').value === 'Update b.txt' && !document.querySelector('.completion')`, 'completion accepted');
+	const codeBefore = read('src/code.ts');
+	fs.appendFileSync(path.join(ws, 'src/code.ts'), 'export function greetEveryone(): void {}\n');
+	await changed('src/code.ts');
+	await waitFor(async () => {
+		await typeInsert('Add greetE');
+		await new Promise((r) => setTimeout(r, 1500));
+		return v.eval<boolean>(`[...document.querySelectorAll('.completion .item')].some((e) => e.textContent.trim() === 'greetEveryone')`);
+	}, 'function names of the changed files complete', 40000);
+	await v.key('Escape', {}, 'textarea.message');
+	await v.waitFor(`!document.querySelector('.completion')`, 'completion closed');
+	fs.writeFileSync(path.join(ws, 'src/code.ts'), codeBefore);
+	await repo().refresh();
 
 	const cfg = vscode.workspace.getConfiguration('changeline');
 	await cfg.update('issueNavigation', [{ pattern: 'ABC-\\d+', link: 'https://jira.example/browse/$0' }], vscode.ConfigurationTarget.Global);

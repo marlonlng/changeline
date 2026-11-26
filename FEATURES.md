@@ -30,7 +30,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | Group by directory / repository | View toolbar → Group By | E (repository), V (directory) |
 | Commit message editor, Amend, history (⌘M), commit template | Commit Message view | V, S 01, H |
 | Message inspections (subject length, blank line) | Inline warnings | V, H |
-| Completion of changed file names in the commit message (⌃Space or while typing) | Commit Message view | U, V |
+| Completion in the commit message (⌃Space or while typing): changed file names and class, function and method names (workspace symbols and symbols of the changed files) | Commit Message view | U, V |
 | Issue navigation: issue IDs link to the tracker (`changeline.issueNavigation`, #123 for GitHub / GitLab) | Commit message, log details, annotate tooltip, diff header | U, V |
 | Right margin with "Wrap when typing reaches right margin" | Commit Message view, `changeline.commit.wrapWhenTypingReachesRightMargin` | U, V |
 | Generate commit message (AI Assistant) | Sparkle button, uses VS Code's language model API (e.g. GitHub Copilot) when one is installed | — |
@@ -50,7 +50,7 @@ Reference: the Git integration of PhpStorm / IntelliJ IDEA (2024–2025), includ
 | JetBrains | Changeline | Evidence |
 | --- | --- | --- |
 | Side-by-side viewer with two editors that scroll together and curved bands in the divider, unified viewer, syntax highlighting | Diff viewer | U, V, S 02, H |
-| Highlight words / lines / split changes / characters / do not highlight; do not ignore, trim whitespaces, ignore whitespaces (and empty lines); collapse unchanged fragments; use soft wraps | Diff toolbar | U, V, H |
+| Highlight words / lines / split changes / characters / do not highlight; do not ignore, trim whitespaces, ignore whitespaces (and empty lines), ignore formatting; collapse unchanged fragments; use soft wraps | Diff toolbar | U, V, H |
 | » revert chunk, include checkbox, stage / unstage chunk | Diff gutter | V (revert, include), I (stage / unstage index writes), H |
 | Next / previous difference (F7), next / previous file | Toolbar, keys | V, H |
 | Change markers in the scrollbar, click jumps to the change | Overview bar of the diff viewer | U, V, S 02 |

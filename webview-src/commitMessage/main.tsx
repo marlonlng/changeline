@@ -125,16 +125,30 @@ function App() {
 	const problems = useMemo(() => (st && st.showInspections ? inspect(message, st.subjectLimit, st.bodyLimit) : []), [message, st?.subjectLimit, st?.bodyLimit, st?.showInspections]);
 	const issues = useMemo(() => (st?.issueRules.length ? linkIssues(message, st.issueRules).filter((p) => p.url) : []), [message, st?.issueRules]);
 
+	const popupWord = useRef('');
+	const closePopup = () => {
+		popupWord.current = '\0';
+		setPopup(null);
+	};
+
 	const openPopup = (el: HTMLTextAreaElement, explicit: boolean) => {
 		const caret = el.selectionStart;
 		const { start, word } = wordAt(el.value, caret);
-		const items = st && (explicit || word.length >= 2) ? completeWord(word, st.completions) : [];
-		if (!items.length) {
-			setPopup(null);
-			return;
-		}
+		popupWord.current = word;
+		const files = st && (explicit || word.length >= 2) ? completeWord(word, st.completions) : [];
 		const p = caretPoint(el, start);
-		setPopup({ items, index: 0, start, x: p.x, y: p.y });
+		setPopup(files.length ? { items: files, index: 0, start, x: p.x, y: p.y } : null);
+		if (explicit || word.length >= 2) {
+			call<string[]>('symbols', { word }).then((symbols) => {
+				if (popupWord.current !== word || !symbols.length) {
+					return;
+				}
+				setPopup((cur) => {
+					const items = [...new Set([...symbols, ...(cur?.items ?? files)])].slice(0, 20);
+					return { items, index: 0, start, x: p.x, y: p.y };
+				});
+			}, () => undefined);
+		}
 	};
 
 	const accept = (item: string) => {
@@ -145,7 +159,7 @@ function App() {
 		const caret = el.selectionStart;
 		const next = el.value.slice(0, popup.start) + item + el.value.slice(caret);
 		updateMessage(next);
-		setPopup(null);
+		closePopup();
 		requestAnimationFrame(() => {
 			el.focus();
 			el.selectionStart = el.selectionEnd = popup.start + item.length;
@@ -216,17 +230,17 @@ function App() {
 					if ((e as InputEvent).inputType?.startsWith('insert')) {
 						openPopup(el, false);
 					} else {
-						setPopup(null);
+						closePopup();
 					}
 				}}
-				onBlur={() => setTimeout(() => setPopup(null), 150)}
+				onBlur={() => setTimeout(closePopup, 150)}
 				onKeyDown={(e) => {
 					if (popup && ['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(e.key) && !e.metaKey && !e.ctrlKey) {
 						e.preventDefault();
 						if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
 							setPopup({ ...popup, index: (popup.index + (e.key === 'ArrowDown' ? 1 : popup.items.length - 1)) % popup.items.length });
 						} else if (e.key === 'Escape') {
-							setPopup(null);
+							closePopup();
 						} else {
 							accept(popup.items[popup.index]);
 						}
@@ -256,7 +270,7 @@ function App() {
 								accept(item);
 							}}
 						>
-							<span class="codicon codicon-file" /> {item}
+							<span class={`codicon codicon-${st.completions.includes(item) ? 'file' : 'symbol-class'}`} /> {item}
 						</div>
 					))}
 				</div>

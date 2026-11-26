@@ -18,11 +18,16 @@ export class CommitMessageView implements vscode.WebviewViewProvider, vscode.Dis
 	private rules: IssueRule[] = [];
 	private canGenerate = false;
 	private generating = false;
+	private symbolTimer?: NodeJS.Timeout;
+	private readonly fileSymbols = new Map<string, { name: string; kind: vscode.SymbolKind }[]>();
 
 	constructor(private readonly extensionUri: vscode.Uri, private readonly controller: CommitController, private readonly changes: ChangesView) {
 		this.disposables.push(
 			controller.onDidChange((e) => this.push(e.message)),
-			changes.onDidChangeModel(() => this.push(false)),
+			changes.onDidChangeModel(() => {
+				this.push(false);
+				this.scheduleSymbols();
+			}),
 			vscode.workspace.onDidChangeConfiguration((e) => {
 				if (e.affectsConfiguration('changeline.issueNavigation') || e.affectsConfiguration('changeline.github') || e.affectsConfiguration('changeline.gitlab')) {
 					forgetIssueRules();
@@ -47,6 +52,68 @@ export class CommitMessageView implements vscode.WebviewViewProvider, vscode.Dis
 	private async checkModels(): Promise<void> {
 		this.canGenerate = await canGenerateMessage();
 		this.push(false);
+	}
+
+	/** Loads the symbols of the changed files in the background, so completion has them before the language servers answer the first time. */
+	private scheduleSymbols(): void {
+		if (this.symbolTimer) {
+			clearTimeout(this.symbolTimer);
+		}
+		this.symbolTimer = setTimeout(() => void this.loadFileSymbols(), 1000);
+	}
+
+	private async loadFileSymbols(): Promise<void> {
+		const files = this.changes.allFiles().filter((f) => f.change.status !== 'D').slice(0, 30);
+		const keep = new Set(files.map((f) => f.abs));
+		for (const abs of [...this.fileSymbols.keys()]) {
+			if (!keep.has(abs)) {
+				this.fileSymbols.delete(abs);
+			}
+		}
+		await Promise.all(
+			files.map(async (f) => {
+				const list: { name: string; kind: vscode.SymbolKind }[] = [];
+				const walk = (symbols: (vscode.DocumentSymbol | vscode.SymbolInformation)[] | undefined) => {
+					for (const s of symbols ?? []) {
+						list.push({ name: s.name, kind: s.kind });
+						if ('children' in s) {
+							walk(s.children);
+						}
+					}
+				};
+				walk(await Promise.resolve(vscode.commands.executeCommand<(vscode.DocumentSymbol | vscode.SymbolInformation)[]>('vscode.executeDocumentSymbolProvider', vscode.Uri.file(f.abs))).catch(() => undefined));
+				if (list.length || !this.fileSymbols.has(f.abs)) {
+					this.fileSymbols.set(f.abs, list);
+				}
+			}),
+		);
+	}
+
+	/** Class, function and method names for completing the commit message, like JetBrains completes class names: workspace symbols plus the symbols of the changed files. */
+	async symbols(word: string): Promise<string[]> {
+		const kinds = new Set([vscode.SymbolKind.Class, vscode.SymbolKind.Interface, vscode.SymbolKind.Enum, vscode.SymbolKind.Struct, vscode.SymbolKind.Function, vscode.SymbolKind.Method, vscode.SymbolKind.Module, vscode.SymbolKind.Namespace]);
+		const prefix = word.toLowerCase();
+		const names = new Set<string>();
+		const add = (name: string, kind: vscode.SymbolKind) => {
+			const n = name.replace(/\(.*$/, '').trim();
+			if (kinds.has(kind) && n.toLowerCase().startsWith(prefix) && n.length > word.length) {
+				names.add(n);
+			}
+		};
+		const workspace = word.length >= 2 ? await Promise.resolve(vscode.commands.executeCommand<vscode.SymbolInformation[]>('vscode.executeWorkspaceSymbolProvider', word)).catch(() => undefined) : undefined;
+		for (const s of workspace ?? []) {
+			add(s.name, s.kind);
+		}
+		if (![...this.fileSymbols.values()].some((l) => l.length)) {
+			await this.loadFileSymbols();
+		}
+		for (const list of this.fileSymbols.values()) {
+			for (const s of list) {
+				add(s.name, s.kind);
+			}
+		}
+		this.scheduleSymbols();
+		return [...names].sort((a, b) => a.length - b.length || a.localeCompare(b)).slice(0, 20);
 	}
 
 	/** Generates a message for the changes about to be committed and streams it into the message field. */
@@ -110,6 +177,7 @@ export class CommitMessageView implements vscode.WebviewViewProvider, vscode.Dis
 				}
 			},
 			generate: () => this.generate(),
+			symbols: (p: { word: string }) => this.symbols(p.word),
 		};
 	}
 

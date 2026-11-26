@@ -462,7 +462,7 @@ configuration = O(title='Changeline', properties=O([
     ('changeline.changes.groupByRepository', setting('boolean', True, 'Group changes by repository when the workspace has several.')),
     ('changeline.changes.showIgnored', setting('boolean', False, 'Show ignored files in Local Changes.')),
     ('changeline.diff.viewer', setting('string', 'jetbrains', 'Viewer for diffs.', enum=['jetbrains', 'native'], enumDescriptions=['JetBrains style viewer with chunk rollback and partial commit', 'VS Code diff editor'])),
-    ('changeline.diff.ignoreWhitespace', setting('string', 'none', 'Default whitespace handling of the diff viewer.', enum=['none', 'trim', 'all', 'emptyLines'], enumDescriptions=['Do not ignore', 'Trim whitespaces', 'Ignore whitespaces', 'Ignore whitespaces and empty lines'])),
+    ('changeline.diff.ignoreWhitespace', setting('string', 'none', 'Default whitespace handling of the diff viewer.', enum=['none', 'trim', 'all', 'emptyLines', 'formatting'], enumDescriptions=['Do not ignore', 'Trim whitespaces', 'Ignore whitespaces', 'Ignore whitespaces and empty lines', 'Ignore formatting (whitespace, empty lines and line breaks)'])),
     ('changeline.diff.highlighting', setting('string', 'words', 'Default highlighting of the diff viewer.', enum=['words', 'lines', 'split', 'chars', 'none'], enumDescriptions=['Highlight words', 'Highlight lines', 'Highlight split changes', 'Highlight characters', 'Do not highlight'])),
     ('changeline.diff.softWraps', setting('boolean', False, 'Wrap long lines in the diff viewer instead of scrolling horizontally (*Use soft wraps* in JetBrains IDEs).')),
     ('changeline.diff.sideBySide', setting('boolean', True, 'Use the side-by-side viewer by default (otherwise unified).')),

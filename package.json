@@ -2665,13 +2665,15 @@
 						"none",
 						"trim",
 						"all",
-						"emptyLines"
+						"emptyLines",
+						"formatting"
 					],
 					"enumDescriptions": [
 						"%config.diff.ignoreWhitespace.none%",
 						"%config.diff.ignoreWhitespace.trim%",
 						"%config.diff.ignoreWhitespace.all%",
-						"%config.diff.ignoreWhitespace.emptyLines%"
+						"%config.diff.ignoreWhitespace.emptyLines%",
+						"%config.diff.ignoreWhitespace.formatting%"
 					]
 				},
 				"changeline.diff.highlighting": {

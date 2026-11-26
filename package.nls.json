@@ -218,6 +218,7 @@
 	"config.diff.ignoreWhitespace.trim": "Trim whitespaces",
 	"config.diff.ignoreWhitespace.all": "Ignore whitespaces",
 	"config.diff.ignoreWhitespace.emptyLines": "Ignore whitespaces and empty lines",
+	"config.diff.ignoreWhitespace.formatting": "Ignore formatting (whitespace, empty lines and line breaks)",
 	"config.diff.highlighting": "Default highlighting of the diff viewer.",
 	"config.diff.highlighting.words": "Highlight words",
 	"config.diff.highlighting.lines": "Highlight lines",

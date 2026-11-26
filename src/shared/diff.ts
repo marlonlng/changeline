@@ -6,7 +6,7 @@ export interface DiffChunk {
 	newEnd: number;
 }
 
-export type WhitespaceMode = 'none' | 'trim' | 'all' | 'emptyLines';
+export type WhitespaceMode = 'none' | 'trim' | 'all' | 'emptyLines' | 'formatting';
 
 export type HighlightMode = 'words' | 'lines' | 'split' | 'chars' | 'none';
 
@@ -60,6 +60,7 @@ export function lineKey(line: string, mode: WhitespaceMode): string {
 			return s.trim() + suffix;
 		case 'all':
 		case 'emptyLines':
+		case 'formatting':
 			return s.replace(/\s+/g, '') + suffix;
 		default:
 			return s + suffix;
@@ -87,6 +88,12 @@ export function diffLines(oldLines: readonly string[], newLines: readonly string
 		b[i] = intern(newLines[i]);
 	}
 	const deadline = options.timeoutMs === undefined ? Date.now() + 5000 : Date.now() + options.timeoutMs;
+	if (mode === 'formatting') {
+		const chunks = diffLines(oldLines, newLines, { ...options, whitespace: 'emptyLines' });
+		const changed = changedTokenLines(oldLines, newLines, deadline);
+		const any = (marks: Uint8Array, from: number, to: number) => marks.subarray(from, to).some((m) => m === 1);
+		return chunks.filter((c) => any(changed.old, c.oldStart, c.oldEnd) || any(changed.new, c.newStart, c.newEnd));
+	}
 	if (mode !== 'emptyLines') {
 		return diffInts(a, b, deadline);
 	}
@@ -101,6 +108,41 @@ export function diffLines(oldLines: readonly string[], newLines: readonly string
 		newStart: start(newIndex, c.newStart, c.newEnd),
 		newEnd: end(newIndex, c.newStart, c.newEnd),
 	}));
+}
+
+const CODE_TOKEN = /[\p{L}\p{N}_]+|[^\s\p{L}\p{N}_]/gu;
+
+/** Lines that hold a token without a counterpart on the other side, comparing the token streams with all whitespace and line breaks removed. */
+function changedTokenLines(oldLines: readonly string[], newLines: readonly string[], deadline: number): { old: Uint8Array; new: Uint8Array } {
+	const ids = new Map<string, number>();
+	const tokens = (lines: readonly string[]) => {
+		const id: number[] = [];
+		const line: number[] = [];
+		lines.forEach((l, i) => {
+			for (const t of stripEol(l).match(CODE_TOKEN) ?? []) {
+				let n = ids.get(t);
+				if (n === undefined) {
+					n = ids.size;
+					ids.set(t, n);
+				}
+				id.push(n);
+				line.push(i);
+			}
+		});
+		return { id: Int32Array.from(id), line };
+	};
+	const a = tokens(oldLines);
+	const b = tokens(newLines);
+	const result = { old: new Uint8Array(oldLines.length), new: new Uint8Array(newLines.length) };
+	for (const c of diffInts(a.id, b.id, deadline)) {
+		for (let k = c.oldStart; k < c.oldEnd; k++) {
+			result.old[a.line[k]] = 1;
+		}
+		for (let k = c.newStart; k < c.newEnd; k++) {
+			result.new[b.line[k]] = 1;
+		}
+	}
+	return result;
 }
 
 function nonBlank(lines: readonly string[]): number[] {

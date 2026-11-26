@@ -197,3 +197,11 @@ test('applyChunks: unchanged parts of different length come from the new side', 
 	assert.equal(applyChunks(oldLines, newLines, chunks, () => false), 'a\n\nb\nc\n');
 	assert.equal(applyChunks(oldLines, newLines, chunks, () => true), 'a\n\nb\nC\n');
 });
+
+test('diffLines: "ignore formatting" drops changes that only move line breaks and whitespace', () => {
+	const oldLines = splitLines('call(a, b);\nkeep();\nx = 1;\n');
+	const newLines = splitLines('call(\n    a,\n    b\n);\nkeep();\nx = 2;\n');
+	assert.equal(diffLines(oldLines, newLines, { whitespace: 'emptyLines' }).length, 2);
+	const chunks = diffLines(oldLines, newLines, { whitespace: 'formatting' });
+	assert.deepEqual(chunks.map((c) => newLines.slice(c.newStart, c.newEnd).join('')), ['x = 2;\n']);
+});
