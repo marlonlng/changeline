@@ -323,6 +323,14 @@ body {
 	font-size: 12px;
 }
 
+.ref-label.icon-only {
+	padding: 0 2px;
+}
+
+.labels.compact {
+	gap: 1px;
+}
+
 .ref-label.current {
 	background: rgba(95, 167, 74, 0.25);
 	border-color: rgba(95, 167, 74, 0.6);

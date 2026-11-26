@@ -331,6 +331,24 @@ test('log: graph, labels, details, merge parents, text filter, highlight, collap
 	await v.click('button[title="View Options"]');
 	await v.clickText('.jg-menu .item', 'Collapse Linear Branches');
 
+	await repo().runOp(['tag', 'ui-tag']);
+	await v.waitFor(`!!document.querySelector('.ref-label.tag.icon-only[title="Tag ui-tag"]')`, 'tags show as icons without names by default');
+	await v.click('button[title="View Options"]');
+	await v.clickText('.jg-menu .item', 'Show Tag Names');
+	await v.waitFor(`[...document.querySelectorAll('.ref-label.tag')].some((e) => e.textContent.trim() === 'ui-tag')`, 'tag names shown');
+	await v.click('button[title="View Options"]');
+	await v.clickText('.jg-menu .item', 'Compact References View');
+	await v.waitFor(`!!document.querySelector('.labels.compact') && !document.querySelector('.ref-label.local:not(.icon-only)') && !document.querySelector('.ref-label.tag:not(.icon-only)')`, 'compact references');
+	await v.click('button[title="View Options"]');
+	await v.clickText('.jg-menu .item', 'Compact References View');
+	await v.click('button[title="View Options"]');
+	await v.clickText('.jg-menu .item', 'IntelliSort');
+	await v.waitFor(`document.querySelectorAll('.commit-row').length === ${all}`, 'reloaded in IntelliSort order');
+	await v.click('button[title="View Options"]');
+	await v.waitFor(`[...document.querySelectorAll('.jg-menu .item')].some((e) => e.textContent.trim().startsWith('✓') && e.textContent.includes('IntelliSort'))`, 'IntelliSort checked');
+	await v.clickText('.jg-menu .item', 'IntelliSort');
+	await repo().runOp(['tag', '-d', 'ui-tag']);
+
 	await v.clickText('.branches-pane .jg-row .name', 'feature');
 	const featureTip = (await repo().revParse('feature'))!;
 	await waitFor(() => api._test.logView.current?.selectedCommits[0]?.hash === featureTip, 'feature tip selected');

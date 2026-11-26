@@ -10,6 +10,7 @@ export interface GraphLine {
 	x2: number;
 	y2: 0 | 1 | 2;
 	color: number;
+	arrow?: 'down' | 'up';
 }
 
 export interface GraphRow {
@@ -22,14 +23,31 @@ export interface GraphRow {
 interface Lane {
 	hash: string;
 	color: number;
+	until?: number;
+	resumed?: boolean;
 }
 
-export function layoutGraph(commits: readonly GraphCommit[]): GraphRow[] {
+export const LONG_EDGE = 30;
+const EDGE_STUB = 3;
+
+/**
+ * Lays out the commit graph lane by lane. Unless longEdges is set, an edge to a parent more than LONG_EDGE rows
+ * away is cut like JetBrains does: it ends in an arrow a few rows below the child and starts again with an arrow
+ * a few rows above the parent, so the lanes in between stay free.
+ */
+export function layoutGraph(commits: readonly GraphCommit[], options: { longEdges?: boolean } = {}): GraphRow[] {
 	let lanes: Lane[] = [];
 	let nextColor = 0;
 	const rows: GraphRow[] = [];
+	const rowOf = new Map(commits.map((c, i) => [c.hash, i]));
+	const resume = new Map<number, Lane[]>();
 
-	for (const commit of commits) {
+	for (const [r, commit] of commits.entries()) {
+		for (const lane of resume.get(r) ?? []) {
+			if (!lanes.some((l) => l.hash === lane.hash)) {
+				lanes = [...lanes, { ...lane, resumed: true }];
+			}
+		}
 		const before = lanes;
 		let node = before.findIndex((l) => l.hash === commit.hash);
 		let color: number;
@@ -42,34 +60,40 @@ export function layoutGraph(commits: readonly GraphCommit[]): GraphRow[] {
 
 		const lines: GraphLine[] = [];
 		const passing: { lane: Lane; from: number }[] = [];
-		let insertAt = -1;
 		for (let j = 0; j < before.length; j++) {
 			const lane = before[j];
 			if (lane.hash === commit.hash) {
-				lines.push({ x1: j, y1: 0, x2: node, y2: 1, color: lane.color });
-				if (j === node) {
-					insertAt = passing.length;
-				}
+				lines.push({ x1: j, y1: lane.resumed ? 1 : 0, x2: node, y2: 1, color: lane.color, ...(lane.resumed ? { arrow: 'up' as const } : {}) });
+			} else if (lane.until === r) {
+				lines.push({ x1: j, y1: 0, x2: j, y2: 1, color: lane.color, arrow: 'down' });
 			} else {
 				passing.push({ lane, from: j });
 			}
 		}
-		if (insertAt === -1) {
-			insertAt = passing.length;
-		}
+		const found = before.some((l) => l.hash === commit.hash);
+		const insertAt = found ? passing.filter((p) => p.from < node).length : passing.length;
 
 		const added: { lane: Lane; from: number }[] = [];
 		commit.parents.forEach((parent, index) => {
 			if (passing.some((p) => p.lane.hash === parent) || added.some((p) => p.lane.hash === parent)) {
 				return;
 			}
-			added.push({ lane: { hash: parent, color: index === 0 ? color : nextColor++ }, from: -1 });
+			const lane: Lane = { hash: parent, color: index === 0 ? color : nextColor++ };
+			const at = rowOf.get(parent);
+			if (!options.longEdges && at !== undefined && at - r > LONG_EDGE) {
+				lane.until = r + EDGE_STUB;
+				const list = resume.get(at - EDGE_STUB) ?? [];
+				list.push({ hash: parent, color: lane.color });
+				resume.set(at - EDGE_STUB, list);
+			}
+			added.push({ lane, from: -1 });
 		});
 		const after = [...passing.slice(0, insertAt), ...added, ...passing.slice(insertAt)];
 
 		after.forEach((entry, k) => {
 			if (entry.from >= 0) {
-				lines.push({ x1: entry.from, y1: 0, x2: k, y2: 2, color: entry.lane.color });
+				const resumed = entry.lane.resumed;
+				lines.push({ x1: entry.from, y1: resumed ? 1 : 0, x2: k, y2: 2, color: entry.lane.color, ...(resumed ? { arrow: 'up' as const } : {}) });
 			}
 		});
 		for (const parent of commit.parents) {
@@ -79,7 +103,7 @@ export function layoutGraph(commits: readonly GraphCommit[]): GraphRow[] {
 			}
 		}
 
-		lanes = after.map((e) => e.lane);
+		lanes = after.map((e) => (e.lane.resumed ? { ...e.lane, resumed: false } : e.lane));
 		rows.push({ node, color, lines, width: Math.max(before.length, lanes.length, node + 1) });
 	}
 	return rows;

@@ -38,7 +38,7 @@ export interface InitData extends RefsPayload {
 	repos: { root: string; name: string }[];
 	repoRoot?: string;
 	user: { name?: string; email?: string };
-	settings: { dateFormat: 'relative' | 'absolute'; pageSize: number; showHash: boolean };
+	settings: { dateFormat: 'relative' | 'absolute'; pageSize: number; showHash: boolean; order: 'date' | 'topo' };
 }
 
 export interface Details {

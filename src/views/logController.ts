@@ -150,8 +150,8 @@ export class LogController implements vscode.Disposable {
 		};
 	}
 
-	private query(filters: LogFilters, skip: number, limit: number): LogQuery {
-		const q: LogQuery = { skip, limit, order: config<'date' | 'topo'>('log.order', 'date') };
+	private query(filters: LogFilters, skip: number, limit: number, order?: 'date' | 'topo'): LogQuery {
+		const q: LogQuery = { skip, limit, order: order ?? config<'date' | 'topo'>('log.order', 'date') };
 		if (this.scope.revisions) {
 			q.revisions = this.scope.revisions;
 		} else if (filters.branches && filters.branches.length) {
@@ -199,6 +199,7 @@ export class LogController implements vscode.Disposable {
 						dateFormat: config('log.dateFormat', 'relative'),
 						pageSize: config('log.pageSize', 1000),
 						showHash: config('log.showHashColumn', false),
+						order: config<'date' | 'topo'>('log.order', 'date'),
 					},
 				};
 			},
@@ -214,12 +215,12 @@ export class LogController implements vscode.Disposable {
 				}
 				return repo ? this.refsPayload(repo) : { refs: [] };
 			},
-			load: async (p: { filters: LogFilters; skip: number; limit: number }) => {
+			load: async (p: { filters: LogFilters; skip: number; limit: number; order?: 'date' | 'topo' }) => {
 				const repo = this.repo;
 				if (!repo) {
 					return { commits: [], hasMore: false };
 				}
-				const q = this.query(p.filters, p.skip, p.limit);
+				const q = this.query(p.filters, p.skip, p.limit, p.order);
 				let commits: CommitInfo[] = await repo.log(q);
 				const text = p.filters.text?.trim();
 				if (p.skip === 0 && text && /^[0-9a-f]{7,40}$/i.test(text)) {

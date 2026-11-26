@@ -27,7 +27,13 @@ export function GraphCell({ row, isHead, dimmed }: { row: GraphRow; isHead: bool
 				const y1 = ys[l.y1];
 				const y2 = ys[l.y2];
 				const d = x1 === x2 ? `M${x1} ${y1}L${x2} ${y2}` : `M${x1} ${y1}C${x1} ${(y1 + y2) / 2} ${x2} ${(y1 + y2) / 2} ${x2} ${y2}`;
-				return <path key={i} d={d} stroke={graphColor(l.color)} stroke-width="1.6" fill="none" />;
+				const head = l.arrow === 'down' ? `M${x2 - 3.5} ${y2 - 4}L${x2} ${y2 + 0.5}L${x2 + 3.5} ${y2 - 4}` : l.arrow === 'up' ? `M${x1 - 3.5} ${y1 + 4}L${x1} ${y1 - 0.5}L${x1 + 3.5} ${y1 + 4}` : undefined;
+				return (
+					<g key={i}>
+						<path d={d} stroke={graphColor(l.color)} stroke-width="1.6" fill="none" />
+						{head && <path class="edge-arrow" d={head} stroke={graphColor(l.color)} stroke-width="1.6" fill="none" />}
+					</g>
+				);
 			})}
 			{isHead ? (
 				<circle cx={x(row.node)} cy={h / 2} r={4.5} fill="var(--vscode-editor-background)" stroke={graphColor(row.color)} stroke-width="2" />

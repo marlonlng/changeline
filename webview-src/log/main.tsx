@@ -20,6 +20,10 @@ interface ViewOptions {
 	highlightCurrent: boolean;
 	highlightMine: boolean;
 	collapseLinear: boolean;
+	intelliSort?: boolean;
+	longEdges: boolean;
+	compactRefs: boolean;
+	tagNames: boolean;
 	dateFormat: 'relative' | 'absolute';
 	colAuthor: number;
 	colDate: number;
@@ -65,6 +69,8 @@ function buildLabels(p: RefsPayload): Map<string, RefLabel[]> {
 	}
 	return map;
 }
+
+const check = (on: boolean, label: string) => `${on ? '✓ ' : '   '}${label}`;
 
 function reachableFrom(head: string | undefined, commits: CommitInfo[]): Set<string> {
 	const set = new Set<string>();
@@ -125,6 +131,10 @@ function App() {
 		highlightCurrent: saved.highlightCurrent ?? false,
 		highlightMine: saved.highlightMine ?? false,
 		collapseLinear: saved.collapseLinear ?? false,
+		intelliSort: saved.intelliSort,
+		longEdges: saved.longEdges ?? false,
+		compactRefs: saved.compactRefs ?? false,
+		tagNames: saved.tagNames ?? false,
 		dateFormat: saved.dateFormat ?? 'relative',
 		colAuthor: saved.colAuthor ?? 130,
 		colDate: saved.colDate ?? 130,
@@ -144,6 +154,9 @@ function App() {
 
 	const isHistory = init?.scope.kind === 'history';
 	const pageSize = init?.settings.pageSize ?? 1000;
+	const intelliSort = opts.intelliSort ?? init?.settings.order === 'topo';
+	const orderRef = useRef<'date' | 'topo' | undefined>(undefined);
+	orderRef.current = opts.intelliSort === undefined ? undefined : opts.intelliSort ? 'topo' : 'date';
 
 	const setOpt = (patch: Partial<ViewOptions>) => {
 		const next = { ...opts, ...patch };
@@ -155,7 +168,7 @@ function App() {
 		const token = ++loadToken.current;
 		setLoading(true);
 		try {
-			const res = await call<{ commits: CommitInfo[]; hasMore: boolean }>('load', { filters: f, skip: append ? current.length : 0, limit: pageSize });
+			const res = await call<{ commits: CommitInfo[]; hasMore: boolean }>('load', { filters: f, skip: append ? current.length : 0, limit: pageSize, order: orderRef.current });
 			if (token !== loadToken.current) {
 				return;
 			}
@@ -256,7 +269,7 @@ function App() {
 	const [expandedRuns, setExpandedRuns] = useState<Set<string>>(new Set());
 	const collapsed = useMemo(() => (opts.collapseLinear && graphEnabled ? collapseLinearBranches(allCommits, labels, refs.head, expandedRuns) : undefined), [allCommits, labels, refs.head, opts.collapseLinear, graphEnabled, expandedRuns]);
 	const commits = useMemo(() => (collapsed ? collapsed.visible : allCommits), [collapsed, allCommits]);
-	const graph = useMemo<GraphRow[]>(() => (graphEnabled ? layoutGraph(commits) : []), [commits, graphEnabled]);
+	const graph = useMemo<GraphRow[]>(() => (graphEnabled ? layoutGraph(commits, { longEdges: opts.longEdges }) : []), [commits, graphEnabled, opts.longEdges]);
 	const visibleRef = useRef(commits);
 	visibleRef.current = commits;
 	const inHead = useMemo(() => reachableFrom(refs.head, commits), [refs.head, commits]);
@@ -666,13 +679,16 @@ function App() {
 												</button>
 											)}
 											{rowLabels && (
-												<span class="labels">
-													{rowLabels.map((l) => (
-														<span class={`ref-label ${l.kind}`} title={l.title}>
-															<Icon name={l.kind === 'tag' ? 'tag' : l.kind === 'head' ? 'target' : 'git-branch'} />
-															{l.text}
-														</span>
-													))}
+												<span class={`labels${opts.compactRefs ? ' compact' : ''}`}>
+													{rowLabels.map((l) => {
+														const named = l.kind === 'tag' ? opts.tagNames && !opts.compactRefs : !opts.compactRefs || l.kind === 'current' || l.kind === 'head';
+														return (
+															<span class={`ref-label ${l.kind}${named ? '' : ' icon-only'}`} title={l.title}>
+																<Icon name={l.kind === 'tag' ? 'tag' : l.kind === 'head' ? 'target' : 'git-branch'} />
+																{named && l.text}
+															</span>
+														);
+													})}
 												</span>
 											)}
 										</div>
@@ -721,15 +737,24 @@ function App() {
 					y={menu.y}
 					onClose={() => setMenu(null)}
 					items={[
-						{ label: `${opts.showHash ? '✓ ' : '   '}Show Hash Column`, onClick: () => setOpt({ showHash: !opts.showHash }) },
-						{ label: `${opts.dateFormat === 'relative' ? '✓ ' : '   '}Relative Dates`, onClick: () => setOpt({ dateFormat: opts.dateFormat === 'relative' ? 'absolute' : 'relative' }) },
-						'sep',
-						{ label: `${opts.highlightCurrent ? '✓ ' : '   '}Highlight Current Branch`, onClick: () => setOpt({ highlightCurrent: !opts.highlightCurrent }) },
-						{ label: `${opts.highlightMine ? '✓ ' : '   '}Highlight My Commits`, onClick: () => setOpt({ highlightMine: !opts.highlightMine }) },
-						{ label: `${opts.collapseLinear ? '✓ ' : '   '}Collapse Linear Branches`, onClick: () => {
+						{ label: check(intelliSort, t('IntelliSort')), onClick: () => {
+							orderRef.current = intelliSort ? 'date' : 'topo';
+							setOpt({ intelliSort: !intelliSort });
+							void load(filters, false, []);
+						} },
+						{ label: check(opts.longEdges, t('Show Long Edges')), onClick: () => setOpt({ longEdges: !opts.longEdges }) },
+						{ label: check(opts.collapseLinear, t('Collapse Linear Branches')), onClick: () => {
 							setExpandedRuns(new Set());
 							setOpt({ collapseLinear: !opts.collapseLinear });
 						} },
+						'sep',
+						{ label: check(opts.highlightCurrent, t('Highlight Current Branch')), onClick: () => setOpt({ highlightCurrent: !opts.highlightCurrent }) },
+						{ label: check(opts.highlightMine, t('Highlight My Commits')), onClick: () => setOpt({ highlightMine: !opts.highlightMine }) },
+						'sep',
+						{ label: check(opts.compactRefs, t('Compact References View')), onClick: () => setOpt({ compactRefs: !opts.compactRefs }) },
+						{ label: check(opts.tagNames, t('Show Tag Names')), onClick: () => setOpt({ tagNames: !opts.tagNames }) },
+						{ label: check(opts.showHash, t('Show Hash Column')), onClick: () => setOpt({ showHash: !opts.showHash }) },
+						{ label: check(opts.dateFormat === 'relative', t('Relative Dates')), onClick: () => setOpt({ dateFormat: opts.dateFormat === 'relative' ? 'absolute' : 'relative' }) },
 						'sep',
 						{ label: t('Go to Hash/Branch/Tag...'), onClick: () => call('command', { command: 'changeline.log.goTo', args: [{ logId: init.id }] }) },
 					]}

@@ -60,3 +60,21 @@ test('collapse linear branches hides the inside of side branch runs', async () =
 	const rows = layoutGraph(r.visible);
 	assert.equal(rows[rows.length - 1].width <= 2, true);
 });
+
+test('layoutGraph: long edges end in arrows and free their lane, unless shown', () => {
+	const main = Array.from({ length: 42 }, (_, i) => `m${i}`);
+	const commits = [
+		{ hash: 'm0', parents: ['m1', 's0'] },
+		...main.slice(1, 41).map((h, i) => ({ hash: h, parents: [main[i + 2]] })),
+		{ hash: 's0', parents: ['m41'] },
+		{ hash: 'm41', parents: [] },
+	];
+	const cut = layoutGraph(commits);
+	assert.ok(cut[3].lines.some((l) => l.arrow === 'down'), 'the edge ends with an arrow a few rows below the merge');
+	assert.equal(cut[20].width, 1, 'the lane is free in between');
+	assert.ok(cut[38].lines.some((l) => l.arrow === 'up'), 'the edge starts again a few rows above the parent');
+	assert.equal(cut[41].node, 1);
+	const full = layoutGraph(commits, { longEdges: true });
+	assert.ok(full.every((r) => r.lines.every((l) => !l.arrow)));
+	assert.equal(full[20].width, 2);
+});

@@ -991,5 +991,14 @@
 	"Highlight split changes": "Geteilte Änderungen hervorheben",
 	"Highlight characters": "Zeichen hervorheben",
 	"Do not highlight": "Nicht hervorheben",
-	"Ignore whitespaces and empty lines": "Leerraum und leere Zeilen ignorieren"
+	"Ignore whitespaces and empty lines": "Leerraum und leere Zeilen ignorieren",
+	"IntelliSort": "IntelliSort",
+	"Show Long Edges": "Lange Kanten anzeigen",
+	"Collapse Linear Branches": "Lineare Branches einklappen",
+	"Highlight Current Branch": "Aktuellen Branch hervorheben",
+	"Highlight My Commits": "Meine Commits hervorheben",
+	"Compact References View": "Kompakte Referenzansicht",
+	"Show Tag Names": "Tag-Namen anzeigen",
+	"Show Hash Column": "Hash-Spalte anzeigen",
+	"Relative Dates": "Relative Datumsangaben"
 }
