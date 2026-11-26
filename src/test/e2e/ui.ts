@@ -612,9 +612,10 @@ test('branches popup: sections, favorites star, branch actions, compare with bra
 		}, 'branches shown in the workbench');
 		assert.ok(rows.some((t) => t.includes('Update Project')), rows.join('\n'));
 		const all = qp.items.map((i: vscode.QuickPickItem) => `${i.label} ${i.description ?? ''}`).join('\n');
-		for (const t of ['Update Project', 'Commit...', 'Push...', 'New Branch...', 'Checkout Tag or Revision', 'Local', 'main', 'feature', 'ui-branch', 'Remote', 'origin/main', 'Tags', 'v-ui']) {
+		for (const t of ['Update Project', 'Commit...', 'Push...', 'New Branch...', 'Checkout Tag or Revision', 'Local', 'main', 'feature', 'ui-branch', 'Remote', '$(folder) origin', 'Tags', 'v-ui']) {
 			assert.ok(all.includes(t), `"${t}" in the popup:\n${all}`);
 		}
+		assert.ok(qp.items.some((i: any) => i.ref?.shortName === 'origin/main' && /\$\(cloud\) main$/.test(i.label)), 'remote branches grouped under their remote');
 		const featureItem = () => qp.items.find((i: any) => i.ref?.shortName === 'feature');
 		const wb = await workbench();
 		const clicked = await wb.eval<boolean>(`(() => { const row = [...document.querySelectorAll('.quick-input-widget .monaco-list-row')].find((r) => r.textContent.includes('feature') && !r.textContent.includes('/')); const a = row?.querySelector('.action-label'); if (!a) return false; a.click(); return true; })()`);
@@ -643,6 +644,39 @@ test('branches popup: sections, favorites star, branch actions, compare with bra
 	} finally {
 		w.createQuickPick = create;
 		await vscode.commands.executeCommand('workbench.action.closeQuickOpen');
+	}
+});
+
+test('branches popup: Group by Prefix folders collapse and searching lists full names', async () => {
+	const r = repo();
+	await r.run(['branch', 'group/one']);
+	await r.run(['branch', 'group/two']);
+	await r.refresh();
+	const picks: vscode.QuickPick<any>[] = [];
+	const w = vscode.window as any;
+	const create = w.createQuickPick;
+	w.createQuickPick = () => {
+		const qp = create();
+		picks.push(qp);
+		return qp;
+	};
+	try {
+		void vscode.commands.executeCommand('changeline.branches');
+		const qp = await waitFor(() => picks.find((p) => p.items.some((i: any) => i.folder)), 'branches quick pick with folders');
+		const folder = qp.items.find((i: any) => i.folder === 'local:group');
+		assert.ok(folder, qp.items.map((i: any) => i.label).join(' | '));
+		assert.ok(qp.items.some((i: any) => i.ref?.shortName === 'group/one' && /\$\(git-branch\) one$/.test(i.label)));
+		qp.activeItems = [folder];
+		await new Promise((res) => setTimeout(res, 200));
+		await vscode.commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
+		await waitFor(() => !qp.items.some((i: any) => i.ref?.shortName === 'group/one'), 'folder collapsed');
+		qp.value = 'group/t';
+		await waitFor(() => qp.items.some((i: any) => i.ref?.shortName === 'group/two' && i.label.endsWith('group/two')), 'searching lists full branch names');
+	} finally {
+		w.createQuickPick = create;
+		await vscode.commands.executeCommand('workbench.action.closeQuickOpen');
+		await r.run(['branch', '-D', 'group/one', 'group/two']);
+		await r.refresh();
 	}
 });
 

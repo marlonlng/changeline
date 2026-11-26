@@ -444,9 +444,8 @@ body.vscode-high-contrast-light {
 	font-size: var(--vscode-font-size);
 	margin-top: 4px;
 	margin-bottom: 6px;
-	border: 1px solid var(--jg-border);
-	border-left: 3px solid var(--vscode-textLink-foreground);
-	border-radius: 4px;
+	border: 1px solid var(--vscode-editorWidget-border, var(--jg-border));
+	border-radius: 6px;
 	background: var(--vscode-editorWidget-background);
 	padding: 6px 10px;
 	user-select: text;
@@ -538,7 +537,7 @@ body.vscode-high-contrast-light {
 }
 
 .diff-body .thread.pending {
-	border-left-color: var(--vscode-editorWarning-foreground, #cca700);
+	border-style: dashed;
 }
 
 .diff-body .thread-actions {

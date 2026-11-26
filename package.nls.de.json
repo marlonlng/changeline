@@ -271,5 +271,6 @@
 	"command.logBranch.checkoutUpdate": "Auschecken und aktualisieren",
 	"command.logBranch.worktree": "In neuem Worktree auschecken…",
 	"config.branches.restoreWorkspace": "Arbeitsstand beim Branch-Wechsel wiederherstellen wie in JetBrains-IDEs: Die auf einem Branch geöffneten Editoren werden beim Auschecken eines anderen Branches geschlossen und beim erneuten Auschecken wieder geöffnet.",
-	"config.diff.ignoreWhitespace.formatting": "Formatierung ignorieren (Leerraum, leere Zeilen und Zeilenumbrüche)"
+	"config.diff.ignoreWhitespace.formatting": "Formatierung ignorieren (Leerraum, leere Zeilen und Zeilenumbrüche)",
+	"config.branches.groupByPrefix": "Branches mit Präfix (`feature/…`) im Branches-Popup in Ordnern gruppieren, wie *Group by Prefix* in JetBrains-IDEs."
 }

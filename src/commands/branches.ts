@@ -8,6 +8,7 @@ import { capitalize, config, isValidBranchName, plural, shortHash } from '../uti
 import { ComparePanel } from '../webviews/comparePanel';
 import { showDialog } from '../webviews/dialogPanel';
 import { favoriteBranches, LogController, toggleFavoriteBranch } from '../views/logController';
+import { groupByPrefix } from '../shared/branchTree';
 import { newWorktree } from './worktrees';
 import { CommandContext, confirm, handleOutcome, resolveRepo, withSmartStash } from './common';
 
@@ -15,7 +16,11 @@ interface BranchItem extends vscode.QuickPickItem {
 	action?: string;
 	ref?: RefInfo;
 	worktree?: string;
+	folder?: string;
 }
+
+const INDENT = '\u2003';
+
 
 function trackInfo(r: RefInfo): string {
 	const parts: string[] = [];
@@ -49,7 +54,11 @@ export async function showBranchesPopup(arg?: unknown, singleRepository = false)
 	await repo.refresh();
 	const qp = vscode.window.createQuickPick<BranchItem>();
 	qp.matchOnDescription = true;
+	const collapsedFolders = new Set<string>();
+	const groupButton = { iconPath: new vscode.ThemeIcon('list-tree'), tooltip: vscode.l10n.t('Group by Prefix') };
+	qp.buttons = [groupButton];
 	const build = async (r: Repository) => {
+		const grouped = config('branches.groupByPrefix', true) && !qp.value;
 		const refs = await r.getRefs();
 		const favorites = new Set(favoriteBranches(r));
 		const recent = await r.getRecentBranches(5);
@@ -71,10 +80,10 @@ export async function showBranchesPopup(arg?: unknown, singleRepository = false)
 		);
 		const local = refs.filter((x) => x.type === 'head');
 		const byName = new Map(local.map((x) => [x.shortName, x]));
-		const branchItem = (x: RefInfo): BranchItem => {
+		const branchItem = (x: RefInfo, label = x.shortName, depth = 0): BranchItem => {
 			const fav = favorites.has(x.shortName);
 			return {
-				label: `${x.current ? '$(check)' : x.type === 'remote' ? '$(cloud)' : x.type === 'tag' ? '$(tag)' : '$(git-branch)'} ${x.shortName}`,
+				label: `${INDENT.repeat(depth)}${x.current ? '$(check)' : x.type === 'remote' ? '$(cloud)' : x.type === 'tag' ? '$(tag)' : '$(git-branch)'} ${label}`,
 				description: [x.current ? vscode.l10n.t('current') : '', x.upstream && x.type === 'head' ? `→ ${x.upstream}` : '', trackInfo(x)].filter(Boolean).join('  '),
 				ref: x,
 				buttons: x.type !== 'tag' ? [{ iconPath: fav ? STAR : STAR_EMPTY, tooltip: fav ? vscode.l10n.t('Remove from Favorites') : vscode.l10n.t('Add to Favorites') }] : [],
@@ -84,19 +93,29 @@ export async function showBranchesPopup(arg?: unknown, singleRepository = false)
 		const recentRefs = recent.map((n) => byName.get(n)).filter((x): x is RefInfo => !!x);
 		if (recentRefs.length) {
 			items.push({ label: vscode.l10n.t('Recent'), kind: vscode.QuickPickItemKind.Separator });
-			items.push(...recentRefs.map(branchItem));
+			items.push(...recentRefs.map((x) => branchItem(x)));
 		}
+		const section = (refsOf: RefInfo[], key: string, nameOf: (x: RefInfo) => string) => {
+			if (!grouped) {
+				return refsOf.map((x) => branchItem(x));
+			}
+			return groupByPrefix(refsOf.map((x) => ({ name: nameOf(x), item: x })), collapsedFolders, key).map((row): BranchItem =>
+				row.kind === 'folder'
+					? { label: `${INDENT.repeat(row.depth)}$(${collapsedFolders.has(row.key) ? 'chevron-right' : 'chevron-down'}) $(folder) ${row.label}`, description: plural(row.count, '{0} branch', '{0} branches'), folder: row.key }
+					: branchItem(row.item, row.label, row.depth),
+			);
+		};
 		items.push({ label: vscode.l10n.t('Local'), kind: vscode.QuickPickItemKind.Separator });
-		items.push(...local.sort(sortFav).map(branchItem));
+		items.push(...section(local.sort(sortFav), 'local', (x) => x.shortName));
 		const remote = refs.filter((x) => x.type === 'remote').sort(sortFav);
 		if (remote.length) {
 			items.push({ label: vscode.l10n.t('Remote'), kind: vscode.QuickPickItemKind.Separator });
-			items.push(...remote.map(branchItem));
+			items.push(...section(remote, 'remote', (x) => x.shortName));
 		}
 		const tags = refs.filter((x) => x.type === 'tag').sort((a, b) => b.shortName.localeCompare(a.shortName, undefined, { numeric: true }));
 		if (tags.length) {
 			items.push({ label: vscode.l10n.t('Tags'), kind: vscode.QuickPickItemKind.Separator });
-			items.push(...tags.map(branchItem));
+			items.push(...tags.map((x) => branchItem(x)));
 		}
 		const worktrees = (await r.listWorktrees().catch(() => [])).slice(1);
 		if (worktrees.length) {
@@ -108,6 +127,19 @@ export async function showBranchesPopup(arg?: unknown, singleRepository = false)
 		qp.items = items;
 	};
 	await build(repo);
+	let wasFiltering = false;
+	qp.onDidChangeValue((v) => {
+		if (!!v !== wasFiltering) {
+			wasFiltering = !!v;
+			void build(repo!);
+		}
+	});
+	qp.onDidTriggerButton(async (b) => {
+		if (b === groupButton) {
+			await vscode.workspace.getConfiguration('changeline').update('branches.groupByPrefix', !config('branches.groupByPrefix', true), vscode.ConfigurationTarget.Global);
+			await build(repo!);
+		}
+	});
 	qp.onDidTriggerItemButton(async (e) => {
 		if (e.item.ref) {
 			await toggleFavoriteBranch(repo!, e.item.ref.shortName);
@@ -117,6 +149,16 @@ export async function showBranchesPopup(arg?: unknown, singleRepository = false)
 	qp.onDidAccept(async () => {
 		const item = qp.selectedItems[0];
 		if (!item) {
+			return;
+		}
+		if (item.folder) {
+			if (collapsedFolders.has(item.folder)) {
+				collapsedFolders.delete(item.folder);
+			} else {
+				collapsedFolders.add(item.folder);
+			}
+			await build(repo!);
+			qp.activeItems = qp.items.filter((x) => x.folder === item.folder);
 			return;
 		}
 		if (item.worktree) {

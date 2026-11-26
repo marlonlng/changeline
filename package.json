@@ -2811,6 +2811,11 @@
 					"default": true,
 					"markdownDescription": "%config.branches.restoreWorkspace%"
 				},
+				"changeline.branches.groupByPrefix": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%config.branches.groupByPrefix%"
+				},
 				"changeline.branches.syncControl": {
 					"type": "boolean",
 					"default": true,

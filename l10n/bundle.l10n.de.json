@@ -1051,5 +1051,6 @@
 	"Show First Parent": "Nur ersten Parent anzeigen",
 	"No Merges": "Keine Merges",
 	"Expand Linear Branches": "Lineare Branches ausklappen",
-	"Ignore formatting": "Formatierung ignorieren"
+	"Ignore formatting": "Formatierung ignorieren",
+	"Group by Prefix": "Nach Präfix gruppieren"
 }
